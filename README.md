@@ -1,2 +1,28 @@
-# command-runner
-Tool used for automated integration testing via commands sent through an IO interface
+# Command Runner
+
+Command Runner is a Rust application used for sending user specified commands via an IO interface and processing the responses received
+on that interface.
+
+## Installation
+
+Use `cargo` to install Command Runner.
+
+```bash
+cargo install command-runner
+```
+
+## Usage
+
+```Rust
+```
+
+## Contributing
+
+Pull requests are welcome. For major changes, please open an issue first
+to discuss what you would like to change.
+
+Please make sure to update tests as appropriate.
+
+## License
+
+[MIT](https://choosealicense.com/licenses/mit/)
