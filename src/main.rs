@@ -1,8 +1,9 @@
-use std::io::Result;
-use std::path::PathBuf;
-
 use clap::Parser;
 use colored::*;
+use config::Config;
+use std::path::PathBuf;
+
+mod config;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -11,16 +12,13 @@ pub struct Args {
     config_file: PathBuf,
 }
 
-fn main() -> Result<()> {
+fn main() {
     let args = Args::parse();
-    if args.config_file.exists() {
-        println!(
-            "{}: Found the file {}",
-            "SUCCESS".green(),
-            args.config_file.display()
-        );
-    } else {
-        println!("{}: {}", "ERROR".red(), "File does not exist");
-    }
-    Ok(())
+    let current_config = match Config::new(args.config_file) {
+        Ok(config) => config,
+        Err(error) => {
+            println!("{}: {}", "ERROR".red().bold(), error);
+            return;
+        }
+    };
 }
