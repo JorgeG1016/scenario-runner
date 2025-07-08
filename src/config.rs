@@ -43,7 +43,7 @@ mod tests {
 
     #[test]
     fn config_new_fail_empty_file() {
-        let mut temp_file = match NamedTempFile::new() {
+        let temp_file = match NamedTempFile::new() {
             Ok(new_file) => new_file,
             Err(_) => panic!("Faied to create temp file"),
         };
@@ -52,7 +52,7 @@ mod tests {
 
         assert!(
             result.is_err(),
-            "Somehow there were contents in this temp file"
+            "Somehow there was valid json in this temp file"
         );
     }
 }
