@@ -35,4 +35,24 @@ impl Config {
     }
 }
 
-mod tests {}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::{assert_eq, assert_ne};
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn config_new_fail_empty_file() {
+        let mut temp_file = match NamedTempFile::new() {
+            Ok(new_file) => new_file,
+            Err(_) => panic!("Faied to create temp file"),
+        };
+
+        let result = Config::new(temp_file.path().to_path_buf());
+
+        assert!(
+            result.is_err(),
+            "Somehow there were contents in this temp file"
+        );
+    }
+}
