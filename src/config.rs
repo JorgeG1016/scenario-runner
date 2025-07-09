@@ -1,5 +1,4 @@
 use serde::Deserialize;
-use serde_json;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
@@ -8,11 +7,11 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum ConfigErrors {
     #[error("Config File does not exist")]
-    ConfigFileDoesNotExist,
+    DoesNotExist,
     #[error("Config File could not be opened")]
-    ConfigFileNotOpened(#[from] io::Error),
+    NotOpened(#[from] io::Error),
     #[error("Config File could not be parsed properly")]
-    ConfigFileParsingFailed(#[from] serde_json::Error),
+    ParsingFailed(#[from] serde_json::Error),
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -24,7 +23,7 @@ pub struct Config {
 impl Config {
     pub fn new(config_file_path: PathBuf) -> Result<Self, ConfigErrors> {
         if !config_file_path.exists() {
-            return Err(ConfigErrors::ConfigFileDoesNotExist);
+            return Err(ConfigErrors::DoesNotExist);
         }
 
         let config_file = File::open(config_file_path)?;
@@ -72,7 +71,7 @@ mod tests {
             }
             "#;
         temp_file
-            .write(raw_json.as_bytes())
+            .write_all(raw_json.as_bytes())
             .expect("Failed to write to temp file");
 
         let result = Config::new(temp_file.path().to_path_buf());
@@ -92,7 +91,7 @@ mod tests {
             }
             "#;
         temp_file
-            .write(raw_json.as_bytes())
+            .write_all(raw_json.as_bytes())
             .expect("Failed to write to temp file");
 
         let result = Config::new(temp_file.path().to_path_buf());
@@ -113,7 +112,7 @@ mod tests {
             }
             "#;
         temp_file
-            .write(raw_json.as_bytes())
+            .write_all(raw_json.as_bytes())
             .expect("Failed to write to temp file");
         let result =
             Config::new(temp_file.path().to_path_buf()).expect("Failed to create struct somehow");
