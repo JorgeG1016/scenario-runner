@@ -16,7 +16,7 @@ cargo install command-runner
 The Command Runner takes one mandatory command line argument, a configuration file. The configuration file must be a valid `JSON` file. Configuration
 options are outlined in the Configuration section. Below is an example of how to invoke the Command Runner
 
-```Rust
+```bash
 command-runner --config-file config.json
 ```
 
