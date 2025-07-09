@@ -21,5 +21,5 @@ fn main() {
             return;
         }
     };
-    print!("{:?}", current_config);
+    println!("{current_config:?}");
 }
