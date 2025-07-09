@@ -21,7 +21,5 @@ This can include changes to performance, behavior, or any impacted areas of the 
 
 ## DOCS UPDATED
 
-- [ ] Docs are updated (if applicable)
-- [ ] API documentation updated
 - [ ] README or related documentation updated
-- [ ] Changelog updated (if applicable)
+- [ ] Changelog updated
