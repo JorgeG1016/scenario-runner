@@ -18,7 +18,7 @@ pub enum ConfigErrors {
 #[serde(tag = "type")]
 pub enum ConfigIOType {
     USB { port: String, baud_rate: u32 },
-    TCP { address: String },
+    TCP { address: String, port: u32 },
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -175,7 +175,8 @@ mod tests {
                 "sequence": ["test1.txt", "test2.txt"],
                 "io_interface": {
                     "type": "TCP",
-                    "address": "test:test"
+                    "address": "test",
+                    "port": 8080
                 }
             }
             "#;
@@ -189,7 +190,8 @@ mod tests {
             results_path: Some(PathBuf::from(".").join("results")),
             sequence: vec![PathBuf::from("test1.txt"), PathBuf::from("test2.txt")],
             io_interface: ConfigIOType::TCP {
-                address: String::from("test:test"),
+                address: String::from("test"),
+                port: 8080,
             },
         };
         assert_eq!(result, assert_config);
@@ -205,7 +207,8 @@ mod tests {
                 "sequence": ["test1.txt", "test2.txt"],
                 "io_interface": {
                     "type": "TCP",
-                    "address": "test:test"
+                    "address": "test",
+                    "port": 8080
                 }
             }
             "#;
@@ -219,7 +222,8 @@ mod tests {
             results_path: Some(PathBuf::from(".")),
             sequence: vec![PathBuf::from("test1.txt"), PathBuf::from("test2.txt")],
             io_interface: ConfigIOType::TCP {
-                address: String::from("test:test"),
+                address: String::from("test"),
+                port: 8080,
             },
         };
         assert_eq!(result, assert_config);
