@@ -123,7 +123,6 @@ mod tests {
             {
                 "commands_path": ".",
                 "results_path": ".",
-                "sequence": ["test.txt", "test.txt"],
                 "unknown_field": "."
             }
             "#;
@@ -146,7 +145,6 @@ mod tests {
             {
                 "commands_path": ".",
                 "results_path": ".",
-                "sequence": ["test1.txt", "test2.txt"],
                 "interface": {
                     "type": "USB",
                     "address": "test:test"
@@ -171,7 +169,6 @@ mod tests {
         let raw_json = r#"
             {
                 "commands_path": ".",
-                "sequence": ["test1.txt", "test2.txt"],
                 "interface": {
                     "type": "TCP",
                     "address": "test",
@@ -187,7 +184,6 @@ mod tests {
         let assert_config = Config {
             commands_path: PathBuf::from("."),
             results_path: Some(PathBuf::from(".").join("results")),
-            sequence: vec![PathBuf::from("test1.txt"), PathBuf::from("test2.txt")],
             interface: ConfigInterfaceType::TCP {
                 address: String::from("test"),
                 port: 8080,
@@ -203,7 +199,6 @@ mod tests {
             {
                 "commands_path": ".",
                 "results_path": ".",
-                "sequence": ["test1.txt", "test2.txt"],
                 "interface": {
                     "type": "TCP",
                     "address": "test",
@@ -219,7 +214,6 @@ mod tests {
         let assert_config = Config {
             commands_path: PathBuf::from("."),
             results_path: Some(PathBuf::from(".")),
-            sequence: vec![PathBuf::from("test1.txt"), PathBuf::from("test2.txt")],
             interface: ConfigInterfaceType::TCP {
                 address: String::from("test"),
                 port: 8080,
@@ -235,7 +229,6 @@ mod tests {
             {
                 "commands_path": ".",
                 "results_path": ".",
-                "sequence": ["test1.txt", "test2.txt"],
                 "interface": {
                     "type": "USB",
                     "port": "test",
@@ -251,7 +244,6 @@ mod tests {
         let assert_config = Config {
             commands_path: PathBuf::from("."),
             results_path: Some(PathBuf::from(".")),
-            sequence: vec![PathBuf::from("test1.txt"), PathBuf::from("test2.txt")],
             interface: ConfigInterfaceType::USB {
                 port: String::from("test"),
                 baud_rate: 115200,
