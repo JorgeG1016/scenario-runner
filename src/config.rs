@@ -16,7 +16,7 @@ pub enum ConfigErrors {
 
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(tag = "type")]
-pub enum ConfigIOType {
+pub enum ConfigInterfaceType {
     USB { port: String, baud_rate: u32 },
     TCP { address: String, port: u32 },
 }
@@ -24,11 +24,11 @@ pub enum ConfigIOType {
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    commands_path: PathBuf,
+    pub commands_path: PathBuf,
     #[serde(default)]
-    results_path: Option<PathBuf>,
-    sequence: Vec<PathBuf>,
-    io_interface: ConfigIOType,
+    pub results_path: Option<PathBuf>,
+    pub sequence: Vec<PathBuf>,
+    pub interface: ConfigInterfaceType,
 }
 
 impl Config {
@@ -141,14 +141,14 @@ mod tests {
     }
 
     #[test]
-    fn config_new_fail_io_interface_field_mismatch() {
+    fn config_new_fail_interface_field_mismatch() {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
                 "commands_path": ".",
                 "results_path": ".",
                 "sequence": ["test1.txt", "test2.txt"],
-                "io_interface": {
+                "interface": {
                     "type": "USB",
                     "address": "test:test"
                 }
@@ -173,7 +173,7 @@ mod tests {
             {
                 "commands_path": ".",
                 "sequence": ["test1.txt", "test2.txt"],
-                "io_interface": {
+                "interface": {
                     "type": "TCP",
                     "address": "test",
                     "port": 8080
@@ -189,7 +189,7 @@ mod tests {
             commands_path: PathBuf::from("."),
             results_path: Some(PathBuf::from(".").join("results")),
             sequence: vec![PathBuf::from("test1.txt"), PathBuf::from("test2.txt")],
-            io_interface: ConfigIOType::TCP {
+            interface: ConfigInterfaceType::TCP {
                 address: String::from("test"),
                 port: 8080,
             },
@@ -205,7 +205,7 @@ mod tests {
                 "commands_path": ".",
                 "results_path": ".",
                 "sequence": ["test1.txt", "test2.txt"],
-                "io_interface": {
+                "interface": {
                     "type": "TCP",
                     "address": "test",
                     "port": 8080
@@ -221,7 +221,7 @@ mod tests {
             commands_path: PathBuf::from("."),
             results_path: Some(PathBuf::from(".")),
             sequence: vec![PathBuf::from("test1.txt"), PathBuf::from("test2.txt")],
-            io_interface: ConfigIOType::TCP {
+            interface: ConfigInterfaceType::TCP {
                 address: String::from("test"),
                 port: 8080,
             },
@@ -237,7 +237,7 @@ mod tests {
                 "commands_path": ".",
                 "results_path": ".",
                 "sequence": ["test1.txt", "test2.txt"],
-                "io_interface": {
+                "interface": {
                     "type": "USB",
                     "port": "test",
                     "baud_rate": 115200
@@ -253,7 +253,7 @@ mod tests {
             commands_path: PathBuf::from("."),
             results_path: Some(PathBuf::from(".")),
             sequence: vec![PathBuf::from("test1.txt"), PathBuf::from("test2.txt")],
-            io_interface: ConfigIOType::USB {
+            interface: ConfigInterfaceType::USB {
                 port: String::from("test"),
                 baud_rate: 115200,
             },
