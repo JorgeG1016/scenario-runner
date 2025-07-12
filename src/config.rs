@@ -27,7 +27,6 @@ pub struct Config {
     pub commands_path: PathBuf,
     #[serde(default)]
     pub results_path: Option<PathBuf>,
-    pub sequence: Vec<PathBuf>,
     pub interface: ConfigInterfaceType,
 }
 
