@@ -17,8 +17,8 @@ pub enum ConfigErrors {
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(tag = "type")]
 pub enum ConfigInterfaceType {
-    USB { port: String, baud_rate: u32 },
-    TCP { address: String, port: u32 },
+    Usb { port: String, baud_rate: u32 },
+    Tcp { address: String, port: u32 },
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
@@ -146,7 +146,7 @@ mod tests {
                 "commands_path": ".",
                 "results_path": ".",
                 "interface": {
-                    "type": "USB",
+                    "type": "Usb",
                     "address": "test:test"
                 }
             }
@@ -170,7 +170,7 @@ mod tests {
             {
                 "commands_path": ".",
                 "interface": {
-                    "type": "TCP",
+                    "type": "Tcp",
                     "address": "test",
                     "port": 8080
                 }
@@ -184,7 +184,7 @@ mod tests {
         let assert_config = Config {
             commands_path: PathBuf::from("."),
             results_path: Some(PathBuf::from(".").join("results")),
-            interface: ConfigInterfaceType::TCP {
+            interface: ConfigInterfaceType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
@@ -200,7 +200,7 @@ mod tests {
                 "commands_path": ".",
                 "results_path": ".",
                 "interface": {
-                    "type": "TCP",
+                    "type": "Tcp",
                     "address": "test",
                     "port": 8080
                 }
@@ -214,7 +214,7 @@ mod tests {
         let assert_config = Config {
             commands_path: PathBuf::from("."),
             results_path: Some(PathBuf::from(".")),
-            interface: ConfigInterfaceType::TCP {
+            interface: ConfigInterfaceType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
@@ -230,7 +230,7 @@ mod tests {
                 "commands_path": ".",
                 "results_path": ".",
                 "interface": {
-                    "type": "USB",
+                    "type": "Usb",
                     "port": "test",
                     "baud_rate": 115200
                 }
@@ -244,7 +244,7 @@ mod tests {
         let assert_config = Config {
             commands_path: PathBuf::from("."),
             results_path: Some(PathBuf::from(".")),
-            interface: ConfigInterfaceType::USB {
+            interface: ConfigInterfaceType::Usb {
                 port: String::from("test"),
                 baud_rate: 115200,
             },
