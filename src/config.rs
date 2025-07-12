@@ -15,9 +15,19 @@ pub enum ConfigErrors {
 }
 
 #[derive(Deserialize, Debug, PartialEq)]
+#[serde(tag = "type")]
+pub enum ConfigInterfaceType {
+    Usb { port: String, baud_rate: u32 },
+    Tcp { address: String, port: u32 },
+}
+
+#[derive(Deserialize, Debug, PartialEq)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
-    commands_path: PathBuf,
-    results_path: PathBuf,
+    pub commands_path: PathBuf,
+    #[serde(default)]
+    pub results_path: Option<PathBuf>,
+    pub interface: ConfigInterfaceType,
 }
 
 impl Config {
@@ -28,8 +38,12 @@ impl Config {
 
         let config_file = File::open(config_file_path)?;
         let config_reader = io::BufReader::new(config_file);
-        let parsed_config: Config = serde_json::from_reader(config_reader)?;
-
+        let mut parsed_config: Config = serde_json::from_reader(config_reader)?;
+        if parsed_config.results_path.is_none() {
+            let mut temp_path = parsed_config.commands_path.clone();
+            temp_path.push("results");
+            parsed_config.results_path = Some(temp_path);
+        }
         Ok(parsed_config)
     }
 }
@@ -83,7 +97,7 @@ mod tests {
     }
 
     #[test]
-    fn config_fail_missing_required_field() {
+    fn config_new_fail_missing_required_field() {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
@@ -103,12 +117,63 @@ mod tests {
     }
 
     #[test]
-    fn config_new_pass() {
+    fn config_new_fail_unknown_field_present() {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
                 "commands_path": ".",
-                "results_path": "."
+                "results_path": ".",
+                "unknown_field": "."
+            }
+            "#;
+        temp_file
+            .write_all(raw_json.as_bytes())
+            .expect("Failed to write to temp file");
+
+        let result = Config::new(temp_file.path().to_path_buf());
+
+        assert!(
+            result.is_err(),
+            "Somehow there was valid json in this temp file"
+        );
+    }
+
+    #[test]
+    fn config_new_fail_interface_field_mismatch() {
+        let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+        let raw_json = r#"
+            {
+                "commands_path": ".",
+                "results_path": ".",
+                "interface": {
+                    "type": "Usb",
+                    "address": "test:test"
+                }
+            }
+            "#;
+        temp_file
+            .write_all(raw_json.as_bytes())
+            .expect("Failed to write to temp file");
+
+        let result = Config::new(temp_file.path().to_path_buf());
+
+        assert!(
+            result.is_err(),
+            "Somehow there was valid json in this temp file"
+        );
+    }
+
+    #[test]
+    fn config_new_pass_without_results_path() {
+        let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+        let raw_json = r#"
+            {
+                "commands_path": ".",
+                "interface": {
+                    "type": "Tcp",
+                    "address": "test",
+                    "port": 8080
+                }
             }
             "#;
         temp_file
@@ -118,7 +183,71 @@ mod tests {
             Config::new(temp_file.path().to_path_buf()).expect("Failed to create struct somehow");
         let assert_config = Config {
             commands_path: PathBuf::from("."),
-            results_path: PathBuf::from("."),
+            results_path: Some(PathBuf::from(".").join("results")),
+            interface: ConfigInterfaceType::Tcp {
+                address: String::from("test"),
+                port: 8080,
+            },
+        };
+        assert_eq!(result, assert_config);
+    }
+
+    #[test]
+    fn config_new_pass_tcp_io() {
+        let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+        let raw_json = r#"
+            {
+                "commands_path": ".",
+                "results_path": ".",
+                "interface": {
+                    "type": "Tcp",
+                    "address": "test",
+                    "port": 8080
+                }
+            }
+            "#;
+        temp_file
+            .write_all(raw_json.as_bytes())
+            .expect("Failed to write to temp file");
+        let result =
+            Config::new(temp_file.path().to_path_buf()).expect("Failed to create struct somehow");
+        let assert_config = Config {
+            commands_path: PathBuf::from("."),
+            results_path: Some(PathBuf::from(".")),
+            interface: ConfigInterfaceType::Tcp {
+                address: String::from("test"),
+                port: 8080,
+            },
+        };
+        assert_eq!(result, assert_config);
+    }
+
+    #[test]
+    fn config_new_pass_usb_io() {
+        let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+        let raw_json = r#"
+            {
+                "commands_path": ".",
+                "results_path": ".",
+                "interface": {
+                    "type": "Usb",
+                    "port": "test",
+                    "baud_rate": 115200
+                }
+            }
+            "#;
+        temp_file
+            .write_all(raw_json.as_bytes())
+            .expect("Failed to write to temp file");
+        let result =
+            Config::new(temp_file.path().to_path_buf()).expect("Failed to create struct somehow");
+        let assert_config = Config {
+            commands_path: PathBuf::from("."),
+            results_path: Some(PathBuf::from(".")),
+            interface: ConfigInterfaceType::Usb {
+                port: String::from("test"),
+                baud_rate: 115200,
+            },
         };
         assert_eq!(result, assert_config);
     }
