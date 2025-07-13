@@ -31,23 +31,29 @@ impl Config {
     pub fn new(config_file_string: String) -> Result<Config> {
         let config_file_path = PathBuf::from(config_file_string);
         if !config_file_path.exists() {
-            return Err(anyhow::anyhow!("Config file does not exist"));
+            return Err(anyhow::anyhow!("Specified Config file does not exist"));
         }
 
+        // Process the fields from the raw struct into the final output
         let config_reader = io::BufReader::new(File::open(config_file_path)?);
         let parsed_raw_config: RawConfig = serde_json::from_reader(config_reader)?;
-        let mut temp_path = PathBuf::from(parsed_raw_config.commands_path);
+        let temp_path = PathBuf::from(parsed_raw_config.commands_path);
         let processed_config = Config {
             commands_path: temp_path.clone(),
             interface: parsed_raw_config.interface,
             results_path: match parsed_raw_config.results_path {
                 Some(value) => PathBuf::from(value),
-                None => {
-                    temp_path.push("results");
-                    temp_path
-                }
+                None => temp_path,
             },
         };
+
+        // Check to make sure the paths exist and are actually paths
+        if !processed_config.commands_path.is_dir() {
+            return Err(anyhow::anyhow!("Specified Commands Path does not exist"));
+        }
+        if !processed_config.results_path.is_dir() {
+            return Err(anyhow::anyhow!("Specified Results Path does not exist"));
+        }
         Ok(processed_config)
     }
 }
@@ -187,7 +193,7 @@ mod tests {
             .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
             commands_path: PathBuf::from("."),
-            results_path: PathBuf::from(".").join("results"),
+            results_path: PathBuf::from("."),
             interface: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
