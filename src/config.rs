@@ -1,50 +1,60 @@
+use anyhow::{Ok, Result};
 use serde::Deserialize;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum ConfigErrors {
-    #[error("Config File does not exist")]
-    DoesNotExist,
-    #[error("Config File could not be opened")]
-    NotOpened(#[from] io::Error),
-    #[error("Config File could not be parsed properly")]
-    ParsingFailed(#[from] serde_json::Error),
-}
 
 #[derive(Deserialize, Debug, PartialEq)]
 #[serde(tag = "type")]
-pub enum ConfigInterfaceType {
+pub enum ConnectionType {
     Usb { port: String, baud_rate: u32 },
     Tcp { address: String, port: u32 },
 }
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct RawConfig {
+    commands_path: String,
+    #[serde(default)]
+    results_path: Option<String>,
+    interface: ConnectionType,
+}
+
+#[derive(Debug, PartialEq)]
 pub struct Config {
     pub commands_path: PathBuf,
-    #[serde(default)]
-    pub results_path: Option<PathBuf>,
-    pub interface: ConfigInterfaceType,
+    pub results_path: PathBuf,
+    pub interface: ConnectionType,
 }
 
 impl Config {
-    pub fn new(config_file_path: PathBuf) -> Result<Self, ConfigErrors> {
+    pub fn new(config_file_string: String) -> Result<Config> {
+        let config_file_path = PathBuf::from(config_file_string);
         if !config_file_path.exists() {
-            return Err(ConfigErrors::DoesNotExist);
+            return Err(anyhow::anyhow!("Specified Config file does not exist"));
         }
 
-        let config_file = File::open(config_file_path)?;
-        let config_reader = io::BufReader::new(config_file);
-        let mut parsed_config: Config = serde_json::from_reader(config_reader)?;
-        if parsed_config.results_path.is_none() {
-            let mut temp_path = parsed_config.commands_path.clone();
-            temp_path.push("results");
-            parsed_config.results_path = Some(temp_path);
+        // Process the fields from the raw struct into the final output
+        let config_reader = io::BufReader::new(File::open(config_file_path)?);
+        let parsed_raw_config: RawConfig = serde_json::from_reader(config_reader)?;
+        let temp_path = PathBuf::from(parsed_raw_config.commands_path);
+        let processed_config = Config {
+            commands_path: temp_path.clone(),
+            interface: parsed_raw_config.interface,
+            results_path: match parsed_raw_config.results_path {
+                Some(value) => PathBuf::from(value),
+                None => temp_path,
+            },
+        };
+
+        // Check to make sure the paths exist and are actually paths
+        if !processed_config.commands_path.is_dir() {
+            return Err(anyhow::anyhow!("Specified Commands Path does not exist"));
         }
-        Ok(parsed_config)
+        if !processed_config.results_path.is_dir() {
+            return Err(anyhow::anyhow!("Specified Results Path does not exist"));
+        }
+        Ok(processed_config)
     }
 }
 
@@ -60,7 +70,7 @@ mod tests {
     fn config_new_fail_empty_file() {
         let temp_file = NamedTempFile::new().expect("Failed to create temp file");
 
-        let result = Config::new(temp_file.path().to_path_buf());
+        let result = Config::new(temp_file.path().to_str().unwrap().to_string());
 
         assert!(
             result.is_err(),
@@ -70,7 +80,7 @@ mod tests {
 
     #[test]
     fn config_new_fail_nonexistent_file() {
-        let result = Config::new(PathBuf::from("non/existent/pat"));
+        let result = Config::new("non/existent/pat".to_string());
 
         assert!(result.is_err(), "Somehow a file with valid json exists");
     }
@@ -88,8 +98,7 @@ mod tests {
             .write_all(raw_json.as_bytes())
             .expect("Failed to write to temp file");
 
-        let result = Config::new(temp_file.path().to_path_buf());
-
+        let result = Config::new(temp_file.path().to_str().unwrap().to_string());
         assert!(
             result.is_err(),
             "Somehow there was valid json in this temp file"
@@ -108,7 +117,7 @@ mod tests {
             .write_all(raw_json.as_bytes())
             .expect("Failed to write to temp file");
 
-        let result = Config::new(temp_file.path().to_path_buf());
+        let result = Config::new(temp_file.path().to_str().unwrap().to_string());
 
         assert!(
             result.is_err(),
@@ -130,7 +139,7 @@ mod tests {
             .write_all(raw_json.as_bytes())
             .expect("Failed to write to temp file");
 
-        let result = Config::new(temp_file.path().to_path_buf());
+        let result = Config::new(temp_file.path().to_str().unwrap().to_string());
 
         assert!(
             result.is_err(),
@@ -155,7 +164,7 @@ mod tests {
             .write_all(raw_json.as_bytes())
             .expect("Failed to write to temp file");
 
-        let result = Config::new(temp_file.path().to_path_buf());
+        let result = Config::new(temp_file.path().to_str().unwrap().to_string());
 
         assert!(
             result.is_err(),
@@ -179,12 +188,13 @@ mod tests {
         temp_file
             .write_all(raw_json.as_bytes())
             .expect("Failed to write to temp file");
-        let result =
-            Config::new(temp_file.path().to_path_buf()).expect("Failed to create struct somehow");
+
+        let result = Config::new(temp_file.path().to_str().unwrap().to_string())
+            .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
             commands_path: PathBuf::from("."),
-            results_path: Some(PathBuf::from(".").join("results")),
-            interface: ConfigInterfaceType::Tcp {
+            results_path: PathBuf::from("."),
+            interface: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
@@ -209,12 +219,12 @@ mod tests {
         temp_file
             .write_all(raw_json.as_bytes())
             .expect("Failed to write to temp file");
-        let result =
-            Config::new(temp_file.path().to_path_buf()).expect("Failed to create struct somehow");
+        let result = Config::new(temp_file.path().to_str().unwrap().to_string())
+            .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
             commands_path: PathBuf::from("."),
-            results_path: Some(PathBuf::from(".")),
-            interface: ConfigInterfaceType::Tcp {
+            results_path: PathBuf::from("."),
+            interface: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
@@ -239,12 +249,12 @@ mod tests {
         temp_file
             .write_all(raw_json.as_bytes())
             .expect("Failed to write to temp file");
-        let result =
-            Config::new(temp_file.path().to_path_buf()).expect("Failed to create struct somehow");
+        let result = Config::new(temp_file.path().to_str().unwrap().to_string())
+            .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
             commands_path: PathBuf::from("."),
-            results_path: Some(PathBuf::from(".")),
-            interface: ConfigInterfaceType::Usb {
+            results_path: PathBuf::from("."),
+            interface: ConnectionType::Usb {
                 port: String::from("test"),
                 baud_rate: 115200,
             },

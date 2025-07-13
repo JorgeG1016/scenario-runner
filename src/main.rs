@@ -1,7 +1,6 @@
 use clap::Parser;
 use colored::*;
 use config::Config;
-use std::path::PathBuf;
 
 mod config;
 
@@ -9,7 +8,7 @@ mod config;
 #[command(author, version, about)]
 pub struct Args {
     #[arg(short, long, default_value = "./config.json")]
-    config_file: PathBuf,
+    config_file: String,
 }
 
 fn main() {
