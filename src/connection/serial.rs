@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serialport::SerialPort;
-use std::time::Duration;
 use std::io::{Read, Write};
+use std::time::Duration;
 
 use crate::connection::Communicate;
 
@@ -23,4 +23,4 @@ impl Write for SerialConnection {
     }
 }
 
-impl Communicate for SerialConnection{}
+impl Communicate for SerialConnection {}
