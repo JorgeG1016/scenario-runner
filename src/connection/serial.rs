@@ -18,23 +18,11 @@ impl SerialConnection {
     }
 }
 impl Communicate for SerialConnection {
-    fn receive_until(&mut self, buf: &mut [u8], until: u8) -> Result<usize> {
-        let mut bytes_read: usize = 0;
-        for i in 0..buf.len() {
-            let n = self.connection.read(&mut buf[i..i + 1])?;
-            if n == 0 {
-                break;
-            }
-            bytes_read += 1;
-            if buf[i] == until {
-                break;
-            }
-        }
-        Ok(bytes_read)
+    fn receive(&mut self, buf: &mut [u8]) -> Result<usize> {
+        Ok(self.connection.read(buf)?)
     }
 
     fn send(&mut self, buf: &[u8]) -> Result<()> {
-        self.connection.write_all(buf)?;
-        Ok(())
+        Ok(self.connection.write_all(buf)?)
     }
 }

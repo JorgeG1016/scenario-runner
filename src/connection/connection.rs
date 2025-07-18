@@ -1,6 +1,6 @@
 use anyhow::Result;
 
 pub trait Communicate {
-    fn receive_until(&mut self, buf: &mut [u8], until: u8) -> Result<usize>;
+    fn receive(&mut self, buf: &mut [u8]) -> Result<usize>;
     fn send(&mut self, buf: &[u8]) -> Result<()>;
 }
