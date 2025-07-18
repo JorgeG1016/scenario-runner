@@ -1,28 +1,26 @@
-use anyhow::{Ok, Result};
+use anyhow::Result;
 use serialport::SerialPort;
 use std::time::Duration;
+use std::io::{Read, Write};
 
 use crate::connection::Communicate;
 
-pub struct SerialConnection {
-    connection: Box<dyn SerialPort>,
-}
-impl SerialConnection {
-    pub fn new(port: String, baud_rate: u32) -> Result<SerialConnection> {
-        let opened_serial_port = serialport::new(port, baud_rate)
-            .timeout(Duration::from_secs(1))
-            .open()?;
-        Ok(SerialConnection {
-            connection: opened_serial_port,
-        })
+pub struct SerialConnection(Box<dyn SerialPort>);
+
+impl Read for SerialConnection {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.0.read(buf)
     }
 }
-impl Communicate for SerialConnection {
-    fn receive(&mut self, buf: &mut [u8]) -> Result<usize> {
-        Ok(self.connection.read(buf)?)
+
+impl Write for SerialConnection {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.0.write(buf)
     }
 
-    fn send(&mut self, buf: &[u8]) -> Result<()> {
-        Ok(self.connection.write_all(buf)?)
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.0.flush()
     }
 }
+
+impl Communicate for SerialConnection{}
