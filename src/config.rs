@@ -8,7 +8,7 @@ use std::path::PathBuf;
 #[serde(tag = "type")]
 pub enum ConnectionType {
     Usb { port: String, baud_rate: u32 },
-    Tcp { address: String, port: u32 },
+    Tcp { address: String, port: u16 },
 }
 
 #[derive(Deserialize)]
@@ -62,9 +62,8 @@ impl Config {
 mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
-    use tempfile::NamedTempFile;
-
     use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn config_new_fail_empty_file() {
