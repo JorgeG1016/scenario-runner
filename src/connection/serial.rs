@@ -7,6 +7,7 @@ use crate::connection::Communicate;
 
 pub struct Connection(Box<dyn SerialPort>);
 
+#[allow(dead_code)]
 impl Connection {
     fn new(port: String, baud_rate: u32) -> Result<Self> {
         let new_connection = serialport::new(port, baud_rate)

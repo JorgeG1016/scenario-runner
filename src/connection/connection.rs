@@ -1,6 +1,7 @@
 use anyhow::{Ok, Result};
 use std::io::{Read, Write};
 
+#[allow(dead_code)]
 pub trait Communicate: Read + Write {
     fn read_until(&mut self, buf: &mut [u8], until: u8) -> Result<usize> {
         let mut bytes_read = 0;
