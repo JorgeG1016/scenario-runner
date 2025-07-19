@@ -1,5 +1,7 @@
 pub mod connection;
 pub mod serial;
+pub mod tcp;
 
-pub use connection::Communicate;
-pub use serial::SerialConnection;
+use connection::Communicate;
+use serial::Connection as SerialConnection;
+use tcp::Connection as TcpConnection;

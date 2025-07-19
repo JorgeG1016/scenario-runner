@@ -5,24 +5,24 @@ use std::time::Duration;
 
 use crate::connection::Communicate;
 
-pub struct SerialConnection(Box<dyn SerialPort>);
+pub struct Connection(Box<dyn SerialPort>);
 
-impl SerialConnection {
+impl Connection {
     fn new(port: String, baud_rate: u32) -> Result<Self> {
         let new_connection = serialport::new(port, baud_rate)
             .timeout(Duration::from_secs(1))
             .open()?;
-        Ok(SerialConnection(new_connection))
+        Ok(Connection(new_connection))
     }
 }
 
-impl Read for SerialConnection {
+impl Read for Connection {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         self.0.read(buf)
     }
 }
 
-impl Write for SerialConnection {
+impl Write for Connection {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         self.0.write(buf)
     }
@@ -32,4 +32,4 @@ impl Write for SerialConnection {
     }
 }
 
-impl Communicate for SerialConnection {}
+impl Communicate for Connection {}
