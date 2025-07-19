@@ -5,7 +5,7 @@ use std::io::{Read, Write};
 pub trait Communicate: Read + Write {
     fn read_until(&mut self, buf: &mut [u8], until: u8) -> Result<usize> {
         let mut bytes_read = 0;
-        for i in 0..buf.len() {
+        for (i, value) in buf.iter_mut().enumerate() {
             let mut byte: [u8; 1] = [0; 1];
             let result = self.read(&mut byte)?;
             if result == 0 {
@@ -34,16 +34,16 @@ mod tests {
     struct FailedReader;
     impl Read for FailedReader {
         fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
-            Err(Error::new(ErrorKind::Other, "Simulated read failure"))
+            Err(Error::other("Simulated read failure"))
         }
     }
 
     impl Write for FailedReader {
         fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
-            Err(Error::new(ErrorKind::Other, "Simulated write failure"))
+            Err(Error::other("Simulated write failure"))
         }
         fn flush(&mut self) -> std::io::Result<()> {
-            Err(Error::new(ErrorKind::Other, "Simulated flush failure"))
+            Err(Error::other("Simulated flush failure"))
         }
     }
 

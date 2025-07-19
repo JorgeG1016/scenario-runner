@@ -9,7 +9,7 @@ pub struct Connection(TcpStream);
 #[allow(dead_code)]
 impl Connection {
     fn new(address: String, port: u16) -> Result<Self> {
-        let new_connection = TcpStream::connect(format!("{}:{}", address, port))?;
+        let new_connection = TcpStream::connect(format!("{address}:{port}"))?;
         Ok(Connection(new_connection))
     }
 }

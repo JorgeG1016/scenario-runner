@@ -3,7 +3,6 @@ use colored::*;
 use config::Config;
 
 mod config;
-mod connection;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
