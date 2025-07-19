@@ -32,13 +32,13 @@ mod tests {
 
     struct FailedReader;
     impl Read for FailedReader {
-        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        fn read(&mut self, _buf: &mut [u8]) -> std::io::Result<usize> {
             Err(Error::new(ErrorKind::Other, "Simulated read failure"))
         }
     }
 
     impl Write for FailedReader {
-        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
             Err(Error::new(ErrorKind::Other, "Simulated write failure"))
         }
         fn flush(&mut self) -> std::io::Result<()> {
