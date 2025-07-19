@@ -1,7 +1,6 @@
 use clap::Parser;
 use colored::*;
 use config::Config;
-use connection::*;
 
 mod config;
 mod connection;
