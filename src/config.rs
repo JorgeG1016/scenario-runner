@@ -28,7 +28,7 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new(config_file_string: String) -> Result<Config> {
+    pub fn new(config_file_string: String) -> Result<Self> {
         let config_file_path = PathBuf::from(config_file_string);
         if !config_file_path.exists() {
             return Err(anyhow::anyhow!("Specified Config file does not exist"));
