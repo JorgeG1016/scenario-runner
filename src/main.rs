@@ -5,9 +5,13 @@ use connection::TcpConnection;
 use connection::UsbConnection;
 use env_logger::{self, TimestampPrecision};
 use log::{error, info};
+use std::thread;
+use threads::runner_thread;
+
 
 mod config;
 mod connection;
+mod threads;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -33,7 +37,7 @@ fn main() {
     };
 
     info!("Setting up connection");
-    let connection: Box<dyn Communicate> = match current_config.interface {
+    let connection: Box<dyn Communicate + Send + 'static> = match current_config.interface {
         ConnectionType::Tcp { address, port } => {
             let tcp_connection = match TcpConnection::new(address, port) {
                 Ok(new_connection) => new_connection,
@@ -55,4 +59,6 @@ fn main() {
             Box::new(usb_connection)
         }
     };
+
+    thread::spawn(move || runner_thread(connection));
 }
