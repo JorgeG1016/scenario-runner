@@ -1,15 +1,15 @@
 use clap::Parser;
-use config::{Config, ConnectionType};
 use connection::Communicate;
 use connection::tcp::Connection as TcpConnection;
 use connection::usb::Connection as UsbConnection;
 use env_logger::{self, TimestampPrecision};
+use interaction::config::{Config, ConnectionType};
 use log::{error, info};
 use std::thread;
 use threads::runner_thread;
 
-mod config;
 mod connection;
+mod interaction;
 mod threads;
 
 #[derive(Parser, Debug)]
@@ -36,7 +36,7 @@ fn main() {
     };
 
     info!("Setting up connection");
-    let mut connection: Box<dyn Communicate + Send + 'static> = match current_config.interface {
+    let mut connection: Box<dyn Communicate + Send + 'static> = match current_config.connection {
         ConnectionType::Tcp { address, port } => {
             let tcp_connection = match TcpConnection::new(address, port) {
                 Ok(new_connection) => new_connection,
