@@ -141,22 +141,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "command-runner"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "colored",
- "env_logger",
- "log",
- "pretty_assertions",
- "serde",
- "serde_json",
- "serialport",
- "tempfile",
-]
-
-[[package]]
 name = "core-foundation"
 version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -545,6 +529,22 @@ dependencies = [
  "once_cell",
  "rustix",
  "windows-sys",
+]
+
+[[package]]
+name = "test-runner"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colored",
+ "env_logger",
+ "log",
+ "pretty_assertions",
+ "serde",
+ "serde_json",
+ "serialport",
+ "tempfile",
 ]
 
 [[package]]
