@@ -20,7 +20,7 @@ pub struct Args {
 }
 
 fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("trace"))
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp(Some(TimestampPrecision::Millis))
         .write_style(env_logger::WriteStyle::Always)
         .init();
@@ -60,5 +60,5 @@ fn main() {
     };
 
     let runner_handle = thread::spawn(move || runner_thread(&mut connection));
-    runner_handle.join();
+    let _ = runner_handle.join();
 }
