@@ -8,7 +8,6 @@ use log::{error, info};
 use std::thread;
 use threads::runner_thread;
 
-
 mod config;
 mod connection;
 mod threads;
@@ -37,7 +36,7 @@ fn main() {
     };
 
     info!("Setting up connection");
-    let connection: Box<dyn Communicate + Send + 'static> = match current_config.interface {
+    let mut connection: Box<dyn Communicate + Send + 'static> = match current_config.interface {
         ConnectionType::Tcp { address, port } => {
             let tcp_connection = match TcpConnection::new(address, port) {
                 Ok(new_connection) => new_connection,
@@ -60,5 +59,6 @@ fn main() {
         }
     };
 
-    thread::spawn(move || runner_thread(connection));
+    let runner_handle = thread::spawn(move || runner_thread(&mut connection));
+    runner_handle.join();
 }
