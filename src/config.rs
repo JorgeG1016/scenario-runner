@@ -1,5 +1,6 @@
 use anyhow::{Ok, Result};
 use serde::Deserialize;
+use serde_json::Value;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
@@ -14,16 +15,17 @@ pub enum ConnectionType {
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawConfig {
-    commands_path: String,
     #[serde(default)]
-    results_path: Option<String>,
+    tests_location: Option<String>,
+    #[serde(default)]
+    results_location: Option<String>,
     interface: ConnectionType,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Config {
-    pub commands_path: PathBuf,
-    pub results_path: PathBuf,
+    pub tests_location: PathBuf,
+    pub results_location: PathBuf,
     pub interface: ConnectionType,
 }
 
@@ -37,21 +39,24 @@ impl Config {
         // Process the fields from the raw struct into the final output
         let config_reader = io::BufReader::new(File::open(config_file_path)?);
         let parsed_raw_config: RawConfig = serde_json::from_reader(config_reader)?;
-        let temp_path = PathBuf::from(parsed_raw_config.commands_path);
+        let temp_path = match parsed_raw_config.tests_location {
+            Some(value) => PathBuf::from(value),
+            None => PathBuf::from("."),
+        };
         let processed_config = Config {
-            commands_path: temp_path.clone(),
+            tests_location: temp_path.clone(),
             interface: parsed_raw_config.interface,
-            results_path: match parsed_raw_config.results_path {
+            results_location: match parsed_raw_config.results_location {
                 Some(value) => PathBuf::from(value),
                 None => temp_path,
             },
         };
 
         // Check to make sure the paths exist and are actually paths
-        if !processed_config.commands_path.is_dir() {
+        if !processed_config.tests_location.is_dir() {
             return Err(anyhow::anyhow!("Specified Commands Path does not exist"));
         }
-        if !processed_config.results_path.is_dir() {
+        if !processed_config.results_location.is_dir() {
             return Err(anyhow::anyhow!("Specified Results Path does not exist"));
         }
         Ok(processed_config)
@@ -89,8 +94,8 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "commands_path": 2,
-                "results_path": 2
+                "tests_location": 2,
+                "results_location": 2
             }
             "#;
         temp_file
@@ -109,7 +114,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "commands_path": 2
+                "tests_location": 2
             }
             "#;
         temp_file
@@ -129,8 +134,8 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "commands_path": ".",
-                "results_path": ".",
+                "tests_location": ".",
+                "results_location": ".",
                 "unknown_field": "."
             }
             "#;
@@ -151,8 +156,8 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "commands_path": ".",
-                "results_path": ".",
+                "tests_location": ".",
+                "results_location": ".",
                 "interface": {
                     "type": "Usb",
                     "address": "test:test"
@@ -172,11 +177,11 @@ mod tests {
     }
 
     #[test]
-    fn config_new_pass_without_results_path() {
+    fn config_new_pass_without_results_location() {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "commands_path": ".",
+                "tests_location": ".",
                 "interface": {
                     "type": "Tcp",
                     "address": "test",
@@ -191,8 +196,38 @@ mod tests {
         let result = Config::new(temp_file.path().to_str().unwrap().to_string())
             .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
-            commands_path: PathBuf::from("."),
-            results_path: PathBuf::from("."),
+            tests_location: PathBuf::from("."),
+            results_location: PathBuf::from("."),
+            interface: ConnectionType::Tcp {
+                address: String::from("test"),
+                port: 8080,
+            },
+        };
+        assert_eq!(result, assert_config);
+    }
+
+    #[test]
+    fn config_new_pass_without_tests_location() {
+        let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+        let raw_json = r#"
+            {
+                "results_location": ".",
+                "interface": {
+                    "type": "Tcp",
+                    "address": "test",
+                    "port": 8080
+                }
+            }
+            "#;
+        temp_file
+            .write_all(raw_json.as_bytes())
+            .expect("Failed to write to temp file");
+
+        let result = Config::new(temp_file.path().to_str().unwrap().to_string())
+            .expect("Somehow a valid struct wasn't created");
+        let assert_config = Config {
+            tests_location: PathBuf::from("."),
+            results_location: PathBuf::from("."),
             interface: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
@@ -206,8 +241,8 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "commands_path": ".",
-                "results_path": ".",
+                "tests_location": ".",
+                "results_location": ".",
                 "interface": {
                     "type": "Tcp",
                     "address": "test",
@@ -221,8 +256,8 @@ mod tests {
         let result = Config::new(temp_file.path().to_str().unwrap().to_string())
             .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
-            commands_path: PathBuf::from("."),
-            results_path: PathBuf::from("."),
+            tests_location: PathBuf::from("."),
+            results_location: PathBuf::from("."),
             interface: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
@@ -236,8 +271,8 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "commands_path": ".",
-                "results_path": ".",
+                "tests_location": ".",
+                "results_location": ".",
                 "interface": {
                     "type": "Usb",
                     "port": "test",
@@ -251,11 +286,40 @@ mod tests {
         let result = Config::new(temp_file.path().to_str().unwrap().to_string())
             .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
-            commands_path: PathBuf::from("."),
-            results_path: PathBuf::from("."),
+            tests_location: PathBuf::from("."),
+            results_location: PathBuf::from("."),
             interface: ConnectionType::Usb {
                 port: String::from("test"),
                 baud_rate: 115200,
+            },
+        };
+        assert_eq!(result, assert_config);
+    }
+
+    #[test]
+    fn config_new_pass_without_any_location() {
+        let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+        let raw_json = r#"
+            {
+                "interface": {
+                    "type": "Tcp",
+                    "address": "test",
+                    "port": 8080
+                }
+            }
+            "#;
+        temp_file
+            .write_all(raw_json.as_bytes())
+            .expect("Failed to write to temp file");
+
+        let result = Config::new(temp_file.path().to_str().unwrap().to_string())
+            .expect("Somehow a valid struct wasn't created");
+        let assert_config = Config {
+            tests_location: PathBuf::from("."),
+            results_location: PathBuf::from("."),
+            interface: ConnectionType::Tcp {
+                address: String::from("test"),
+                port: 8080,
             },
         };
         assert_eq!(result, assert_config);
