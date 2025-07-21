@@ -15,17 +15,19 @@ pub enum ConnectionType {
 #[serde(deny_unknown_fields)]
 struct RawConfig {
     #[serde(default)]
-    tests_location: Option<String>,
+    scenarios_location: Option<String>,
     #[serde(default)]
     results_location: Option<String>,
-    scenarios_location: ConnectionType,
+    connection: ConnectionType,
+    scenarios: Vec<String>,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Config {
-    pub tests_location: PathBuf,
+    pub scenarios_location: PathBuf,
     pub results_location: PathBuf,
-    pub scenarios_location: ConnectionType,
+    pub connection: ConnectionType,
+    pub scenarios: Vec<PathBuf>,
 }
 
 impl Config {
@@ -38,26 +40,26 @@ impl Config {
         // Process the fields from the raw struct into the final output
         let config_reader = io::BufReader::new(File::open(config_file_path)?);
         let parsed_raw_config: RawConfig = serde_json::from_reader(config_reader)?;
-        let temp_path = match parsed_raw_config.tests_location {
+        let temp_path = match parsed_raw_config.scenarios_location {
             Some(value) => PathBuf::from(value),
             None => PathBuf::from("."),
         };
         let processed_config = Config {
-            tests_location: temp_path.clone(),
-            scenarios_location: parsed_raw_config.scenarios_location,
+            scenarios_location: temp_path.clone(),
+            connection: parsed_raw_config.connection,
             results_location: match parsed_raw_config.results_location {
                 Some(value) => PathBuf::from(value),
-                None => temp_path,
+                None => temp_path.clone(),
             },
+            scenarios: parsed_raw_config
+                .scenarios
+                .iter()
+                .map(|s| temp_path.join(s))
+                .collect(),
         };
 
-        // Check to make sure the paths exist and are actually paths
-        if !processed_config.tests_location.is_dir() {
-            return Err(anyhow::anyhow!("Specified Commands Path does not exist"));
-        }
-        if !processed_config.results_location.is_dir() {
-            return Err(anyhow::anyhow!("Specified Results Path does not exist"));
-        }
+        print!("{:?}", processed_config.scenarios);
+
         Ok(processed_config)
     }
 }
@@ -93,7 +95,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "tests_location": 2,
+                "scenarios_location": 2
                 "results_location": 2
             }
             "#;
@@ -113,7 +115,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "tests_location": 2
+                "scenarios_location": 2
             }
             "#;
         temp_file
@@ -133,9 +135,13 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "tests_location": ".",
+                "scenarios_location": ".",
                 "results_location": ".",
-                "unknown_field": "."
+                "unknown_field": ".",
+                "scenarios": [
+                    "scenario1",
+                    "scenario2",
+                ]
             }
             "#;
         temp_file
@@ -151,16 +157,20 @@ mod tests {
     }
 
     #[test]
-    fn config_new_fail_scenarios_location_field_mismatch() {
+    fn config_new_fail_connection_field_mismatch() {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "tests_location": ".",
+                "scenarios_location": ".",
                 "results_location": ".",
-                "scenarios_location": {
+                "connection": {
                     "type": "Usb",
                     "address": "test:test"
-                }
+                },
+                "scenarios": [
+                    "scenario1",
+                    "scenario2",
+                ]
             }
             "#;
         temp_file
@@ -180,12 +190,16 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "tests_location": ".",
-                "scenarios_location": {
+                "scenarios_location": ".",
+                "connection": {
                     "type": "Tcp",
                     "address": "test",
                     "port": 8080
-                }
+                },
+                "scenarios": [
+                    "scenario1",
+                    "scenario2"
+                ]
             }
             "#;
         temp_file
@@ -195,27 +209,32 @@ mod tests {
         let result = Config::new(temp_file.path().to_str().unwrap().to_string())
             .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
-            tests_location: PathBuf::from("."),
+            scenarios_location: PathBuf::from("."),
             results_location: PathBuf::from("."),
-            scenarios_location: ConnectionType::Tcp {
+            connection: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
+            scenarios: vec![PathBuf::from("./scenario1"), PathBuf::from("./scenario2")],
         };
         assert_eq!(result, assert_config);
     }
 
     #[test]
-    fn config_new_pass_without_tests_location() {
+    fn config_new_pass_without_scenarios_location() {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
                 "results_location": ".",
-                "scenarios_location": {
+                "connection": {
                     "type": "Tcp",
                     "address": "test",
                     "port": 8080
-                }
+                },
+                "scenarios": [
+                    "scenario1",
+                    "scenario2"
+                ]
             }
             "#;
         temp_file
@@ -225,12 +244,13 @@ mod tests {
         let result = Config::new(temp_file.path().to_str().unwrap().to_string())
             .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
-            tests_location: PathBuf::from("."),
+            scenarios_location: PathBuf::from("."),
             results_location: PathBuf::from("."),
-            scenarios_location: ConnectionType::Tcp {
+            connection: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
+            scenarios: vec![PathBuf::from("./scenario1"), PathBuf::from("./scenario2")],
         };
         assert_eq!(result, assert_config);
     }
@@ -240,13 +260,17 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "tests_location": ".",
+                "scenarios_location": ".",
                 "results_location": ".",
-                "scenarios_location": {
+                "connection": {
                     "type": "Tcp",
                     "address": "test",
                     "port": 8080
-                }
+                },
+                "scenarios": [
+                    "scenario1",
+                    "scenario2"
+                ]
             }
             "#;
         temp_file
@@ -255,12 +279,13 @@ mod tests {
         let result = Config::new(temp_file.path().to_str().unwrap().to_string())
             .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
-            tests_location: PathBuf::from("."),
+            scenarios_location: PathBuf::from("."),
             results_location: PathBuf::from("."),
-            scenarios_location: ConnectionType::Tcp {
+            connection: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
+            scenarios: vec![PathBuf::from("./scenario1"), PathBuf::from("./scenario2")],
         };
         assert_eq!(result, assert_config);
     }
@@ -270,13 +295,17 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "tests_location": ".",
+                "scenarios_location": ".",
                 "results_location": ".",
-                "scenarios_location": {
+                "connection": {
                     "type": "Usb",
                     "port": "test",
                     "baud_rate": 115200
-                }
+                },
+                "scenarios": [
+                    "scenario1",
+                    "scenario2"
+                ]
             }
             "#;
         temp_file
@@ -285,12 +314,13 @@ mod tests {
         let result = Config::new(temp_file.path().to_str().unwrap().to_string())
             .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
-            tests_location: PathBuf::from("."),
+            scenarios_location: PathBuf::from("."),
             results_location: PathBuf::from("."),
-            scenarios_location: ConnectionType::Usb {
+            connection: ConnectionType::Usb {
                 port: String::from("test"),
                 baud_rate: 115200,
             },
+            scenarios: vec![PathBuf::from("./scenario1"), PathBuf::from("./scenario2")],
         };
         assert_eq!(result, assert_config);
     }
@@ -300,11 +330,15 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "scenarios_location": {
+                "connection": {
                     "type": "Tcp",
                     "address": "test",
                     "port": 8080
-                }
+                },
+                "scenarios": [
+                    "scenario1",
+                    "scenario2"
+                ]
             }
             "#;
         temp_file
@@ -314,12 +348,13 @@ mod tests {
         let result = Config::new(temp_file.path().to_str().unwrap().to_string())
             .expect("Somehow a valid struct wasn't created");
         let assert_config = Config {
-            tests_location: PathBuf::from("."),
+            scenarios_location: PathBuf::from("."),
             results_location: PathBuf::from("."),
-            scenarios_location: ConnectionType::Tcp {
+            connection: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
+            scenarios: vec![PathBuf::from("./scenario1"), PathBuf::from("./scenario2")],
         };
         assert_eq!(result, assert_config);
     }
