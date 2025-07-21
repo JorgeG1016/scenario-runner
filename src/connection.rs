@@ -1,19 +1,21 @@
 use anyhow::{Ok, Result};
 use std::io::{Read, Write};
 
-#[allow(dead_code)]
+pub mod tcp;
+pub mod usb;
+
 pub trait Communicate: Read + Write {
     fn read_until(&mut self, buf: &mut [u8], until: u8) -> Result<usize> {
         let mut bytes_read = 0;
-        for (i, value) in buf.iter_mut().enumerate() {
+        for current_byte in buf.iter_mut() {
             let mut byte: [u8; 1] = [0; 1];
             let result = self.read(&mut byte)?;
             if result == 0 {
                 break;
             }
             bytes_read += 1;
-            buf[i] = byte[0];
-            if buf[i] == until {
+            *current_byte = byte[0];
+            if *current_byte == until {
                 break;
             }
         }
@@ -28,7 +30,7 @@ mod tests {
     use super::*;
     use pretty_assertions::assert_eq;
     use std::fs::File;
-    use std::io::{Error, ErrorKind, Read, Seek, Write};
+    use std::io::{Error, Read, Seek, Write};
     use tempfile::tempfile;
 
     struct FailedReader;

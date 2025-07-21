@@ -3,13 +3,12 @@ use serialport::SerialPort;
 use std::io::{Read, Write};
 use std::time::Duration;
 
-use crate::connection::Communicate;
+use super::Communicate;
 
 pub struct Connection(Box<dyn SerialPort>);
 
-#[allow(dead_code)]
 impl Connection {
-    fn new(port: String, baud_rate: u32) -> Result<Self> {
+    pub fn new(port: String, baud_rate: u32) -> Result<Self> {
         let new_connection = serialport::new(port, baud_rate)
             .timeout(Duration::from_secs(1))
             .open()?;

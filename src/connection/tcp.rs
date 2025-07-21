@@ -2,13 +2,12 @@ use anyhow::{Ok, Result};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
-use crate::connection::Communicate;
+use super::Communicate;
 
 pub struct Connection(TcpStream);
 
-#[allow(dead_code)]
 impl Connection {
-    fn new(address: String, port: u16) -> Result<Self> {
+    pub fn new(address: String, port: u16) -> Result<Self> {
         let new_connection = TcpStream::connect(format!("{address}:{port}"))?;
         Ok(Connection(new_connection))
     }
