@@ -1,8 +1,8 @@
 use clap::Parser;
 use config::{Config, ConnectionType};
 use connection::Communicate;
-use connection::TcpConnection;
-use connection::UsbConnection;
+use connection::tcp::Connection as TcpConnection;
+use connection::usb::Connection as UsbConnection;
 use env_logger::{self, TimestampPrecision};
 use log::{error, info};
 use std::thread;
@@ -30,7 +30,7 @@ fn main() {
     let current_config = match Config::new(args.config_file) {
         Ok(config) => config,
         Err(msg) => {
-            error!("Issue with config file [{}]", msg);
+            error!("Issue with config file [{msg}]");
             return;
         }
     };
@@ -41,7 +41,7 @@ fn main() {
             let tcp_connection = match TcpConnection::new(address, port) {
                 Ok(new_connection) => new_connection,
                 Err(msg) => {
-                    error!("Issue opening TCP connection [{}]", msg);
+                    error!("Issue opening TCP connection [{msg}]");
                     return;
                 }
             };
@@ -51,7 +51,7 @@ fn main() {
             let usb_connection = match UsbConnection::new(port, baud_rate) {
                 Ok(new_connection) => new_connection,
                 Err(msg) => {
-                    error!("Issue opening USB connection [{}]", msg);
+                    error!("Issue opening USB connection [{msg}]");
                     return;
                 }
             };

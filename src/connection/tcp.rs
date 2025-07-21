@@ -2,7 +2,7 @@ use anyhow::{Ok, Result};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
-use crate::connection::Communicate;
+use super::Communicate;
 
 pub struct Connection(TcpStream);
 

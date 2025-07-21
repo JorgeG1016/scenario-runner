@@ -1,19 +1,21 @@
 use anyhow::{Ok, Result};
 use std::io::{Read, Write};
 
+pub mod tcp;
+pub mod usb;
+
 pub trait Communicate: Read + Write {
     fn read_until(&mut self, buf: &mut [u8], until: u8) -> Result<usize> {
         let mut bytes_read = 0;
-        let buf_len = buf.len();
-        for i in 0..buf_len {
+        for current_byte in buf.iter_mut() {
             let mut byte: [u8; 1] = [0; 1];
             let result = self.read(&mut byte)?;
             if result == 0 {
                 break;
             }
             bytes_read += 1;
-            buf[i] = byte[0];
-            if buf[i] == until {
+            *current_byte = byte[0];
+            if *current_byte == until {
                 break;
             }
         }

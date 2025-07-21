@@ -3,7 +3,7 @@ use serialport::SerialPort;
 use std::io::{Read, Write};
 use std::time::Duration;
 
-use crate::connection::Communicate;
+use super::Communicate;
 
 pub struct Connection(Box<dyn SerialPort>);
 
