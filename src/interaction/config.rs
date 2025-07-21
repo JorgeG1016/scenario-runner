@@ -18,14 +18,14 @@ struct RawConfig {
     tests_location: Option<String>,
     #[serde(default)]
     results_location: Option<String>,
-    connection: ConnectionType,
+    scenarios_location: ConnectionType,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Config {
     pub tests_location: PathBuf,
     pub results_location: PathBuf,
-    pub connection: ConnectionType,
+    pub scenarios_location: ConnectionType,
 }
 
 impl Config {
@@ -44,7 +44,7 @@ impl Config {
         };
         let processed_config = Config {
             tests_location: temp_path.clone(),
-            connection: parsed_raw_config.connection,
+            scenarios_location: parsed_raw_config.scenarios_location,
             results_location: match parsed_raw_config.results_location {
                 Some(value) => PathBuf::from(value),
                 None => temp_path,
@@ -151,13 +151,13 @@ mod tests {
     }
 
     #[test]
-    fn config_new_fail_connection_field_mismatch() {
+    fn config_new_fail_scenarios_location_field_mismatch() {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
                 "tests_location": ".",
                 "results_location": ".",
-                "connection": {
+                "scenarios_location": {
                     "type": "Usb",
                     "address": "test:test"
                 }
@@ -181,7 +181,7 @@ mod tests {
         let raw_json = r#"
             {
                 "tests_location": ".",
-                "connection": {
+                "scenarios_location": {
                     "type": "Tcp",
                     "address": "test",
                     "port": 8080
@@ -197,7 +197,7 @@ mod tests {
         let assert_config = Config {
             tests_location: PathBuf::from("."),
             results_location: PathBuf::from("."),
-            connection: ConnectionType::Tcp {
+            scenarios_location: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
@@ -211,7 +211,7 @@ mod tests {
         let raw_json = r#"
             {
                 "results_location": ".",
-                "connection": {
+                "scenarios_location": {
                     "type": "Tcp",
                     "address": "test",
                     "port": 8080
@@ -227,7 +227,7 @@ mod tests {
         let assert_config = Config {
             tests_location: PathBuf::from("."),
             results_location: PathBuf::from("."),
-            connection: ConnectionType::Tcp {
+            scenarios_location: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
@@ -242,7 +242,7 @@ mod tests {
             {
                 "tests_location": ".",
                 "results_location": ".",
-                "connection": {
+                "scenarios_location": {
                     "type": "Tcp",
                     "address": "test",
                     "port": 8080
@@ -257,7 +257,7 @@ mod tests {
         let assert_config = Config {
             tests_location: PathBuf::from("."),
             results_location: PathBuf::from("."),
-            connection: ConnectionType::Tcp {
+            scenarios_location: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },
@@ -272,7 +272,7 @@ mod tests {
             {
                 "tests_location": ".",
                 "results_location": ".",
-                "connection": {
+                "scenarios_location": {
                     "type": "Usb",
                     "port": "test",
                     "baud_rate": 115200
@@ -287,7 +287,7 @@ mod tests {
         let assert_config = Config {
             tests_location: PathBuf::from("."),
             results_location: PathBuf::from("."),
-            connection: ConnectionType::Usb {
+            scenarios_location: ConnectionType::Usb {
                 port: String::from("test"),
                 baud_rate: 115200,
             },
@@ -300,7 +300,7 @@ mod tests {
         let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
         let raw_json = r#"
             {
-                "connection": {
+                "scenarios_location": {
                     "type": "Tcp",
                     "address": "test",
                     "port": 8080
@@ -316,7 +316,7 @@ mod tests {
         let assert_config = Config {
             tests_location: PathBuf::from("."),
             results_location: PathBuf::from("."),
-            connection: ConnectionType::Tcp {
+            scenarios_location: ConnectionType::Tcp {
                 address: String::from("test"),
                 port: 8080,
             },

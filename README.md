@@ -1,7 +1,7 @@
 # Command Runner
 
-The Command Runner is a Rust application used for sending user specified commands via an IO interface and processing the responses received
-on that interface.
+The Command Runner is a Rust application used for sending user specified commands via an IO connection and processing the responses received
+on that connection.
 
 ## Installation
 
