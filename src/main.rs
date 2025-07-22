@@ -7,6 +7,7 @@ use interaction::config::{Config, ConnectionType};
 use log::{error, info};
 use std::thread;
 use threads::runner_thread;
+use threads::handler_thread;
 
 mod connection;
 mod interaction;
@@ -36,7 +37,9 @@ fn main() {
     };
 
     info!("Setting up connection");
-    let mut connection: Box<dyn Communicate + Send + 'static> = match current_config.connection {
+    //Cloning since the complete struct still needs to be passed to the handler thread
+    let connection = current_config.connection.clone();
+    let mut opened_connection: Box<dyn Communicate + Send + 'static> = match connection {
         ConnectionType::Tcp { address, port } => {
             let tcp_connection = match TcpConnection::new(address, port) {
                 Ok(new_connection) => new_connection,
@@ -58,7 +61,11 @@ fn main() {
             Box::new(usb_connection)
         }
     };
+    
 
-    let runner_handle = thread::spawn(move || runner_thread(&mut connection));
+    let handler_handle = thread::spawn(move || handler_thread(current_config));
+
+    let runner_handle = thread::spawn(move || runner_thread(&mut opened_connection));
+    let _ = handler_handle.join();
     let _ = runner_handle.join();
 }
