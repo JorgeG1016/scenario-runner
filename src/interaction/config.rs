@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 
-#[derive(Deserialize, Debug, PartialEq)]
+#[derive(Deserialize, Debug, PartialEq, Clone)]
 #[serde(tag = "type")]
 pub enum ConnectionType {
     Usb { port: String, baud_rate: u32 },
@@ -57,9 +57,7 @@ impl Config {
                 .map(|s| temp_path.join(s))
                 .collect(),
         };
-
-        print!("{:?}", processed_config.scenarios);
-
+        
         Ok(processed_config)
     }
 }
