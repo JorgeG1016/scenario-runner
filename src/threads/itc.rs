@@ -1,8 +1,12 @@
+use anyhow::Result;
 use chrono::{DateTime, Local};
-use std::sync::mpsc::{Receiver, Sender};
+use std::{
+    sync::mpsc::{Receiver, Sender},
+    time::Duration,
+};
 
 #[allow(dead_code)]
-pub enum Messages {
+pub enum Message {
     StartDataStream,
     StopDataStream,
     SendData {
@@ -16,15 +20,34 @@ pub enum Messages {
 }
 
 pub struct Itc {
-    pub send_channel: Sender<Messages>,
-    pub receive_channel: Receiver<Messages>,
+    pub send_channel: Sender<Message>,
+    pub receive_channel: Receiver<Message>,
 }
 
 impl Itc {
-    pub fn new(send_channel: Sender<Messages>, receive_channel: Receiver<Messages>) -> Self {
+    pub fn new(send_channel: Sender<Message>, receive_channel: Receiver<Message>) -> Self {
         Self {
             send_channel,
             receive_channel,
         }
+    }
+
+    pub fn send_all(&self, messages: Vec<Message>) -> Result<()> {
+        for message in messages {
+            self.send_channel.send(message)?;
+        }
+        Ok(())
+    }
+
+    pub fn try_receive_all(&self) -> Result<Vec<Message>> {
+        let mut messages: Vec<Message> = Vec::new();
+        while let Ok(message) = self.receive_channel.try_recv() {
+            messages.push(message);
+        }
+        Ok(messages)
+    }
+
+    pub fn receive_timeout(&self, timeout: Duration) -> Result<Message> {
+        Ok(self.receive_channel.recv_timeout(timeout)?)
     }
 }
