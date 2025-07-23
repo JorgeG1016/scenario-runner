@@ -1,9 +1,9 @@
-use super::itc::{Itc, Messages};
+use super::itc::{Itc, Message};
 use crate::interaction::command::{self, Sendable, parse_scenario};
 use crate::interaction::config::Config;
 use log::{info, warn};
 use std::thread;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub fn thread(config: Config, runner_channels: Itc) {
     info!("Starting Scenario Handler Thread");
@@ -34,11 +34,8 @@ pub fn thread(config: Config, runner_channels: Itc) {
                         Sendable::Text { data } => data,
                     };
                     thread::sleep(delay);
-                    if runner_channels
-                        .send_channel
-                        .send(Messages::SendData { data })
-                        .is_err()
-                    {
+                    let start_sequence = vec![Message::SendData { data }, Message::StartDataStream];
+                    if runner_channels.send_all(start_sequence).is_err() {
                         warn!(
                             "Command {} in {} could not be sent, skipping",
                             cnt,
@@ -47,7 +44,15 @@ pub fn thread(config: Config, runner_channels: Itc) {
                     }
                     let start_time = Instant::now();
                     while Instant::now() - start_time < timeout {
-                        let _received_data = runner_channels.receive_channel.recv();
+                        let elapsed_time = Instant::now() - start_time;
+                        let remaining_time = timeout
+                            .checked_sub(elapsed_time)
+                            .unwrap_or(Duration::from_secs(0));
+
+                        if remaining_time.is_zero() {
+                            break;
+                        }
+                        let _received_data = runner_channels.receive_timeout(remaining_time);
                     }
                 }
             };
