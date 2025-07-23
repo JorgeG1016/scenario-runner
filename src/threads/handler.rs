@@ -23,7 +23,7 @@ pub fn thread(config: Config, runner_channels: Itc) {
 
         for command in scenario_commands {
             match command.command {
-                command::Type::Standard {
+                command::Destination::Connection {
                     send,
                     expect_prefix,
                     expect_exact,
@@ -40,22 +40,9 @@ pub fn thread(config: Config, runner_channels: Itc) {
                     while Instant::now() - start_time < timeout {
                         let received_data = runner_channels.receive_channel.recv();
                         
+                        
                     }
                 },
-                command::Type::Wait { 
-                    expect_prefix, 
-                    expect_exact, 
-                    timeout, 
-                    delay 
-                } => {
-
-                },
-                command::Type::WriteOnly { 
-                    send, 
-                    delay 
-                } => {
-
-                }
             };
         }
     }

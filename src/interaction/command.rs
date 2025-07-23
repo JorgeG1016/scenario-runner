@@ -1,6 +1,7 @@
-use anyhow::{Result};
+use anyhow::{Result, bail};
 use hex;
 use serde::Deserialize;
+use std::any;
 use std::{fs::File, io::BufReader, path::PathBuf};
 use std::time::Duration;
 
@@ -12,33 +13,36 @@ enum RawSendable {
 }
 
 #[derive(Deserialize)]
-#[serde(tag = "type")]
-enum RawType {
-    Standard {
-        send: RawSendable,
-        expect_prefix: String,
-        expect_exact: String,
-        timeout: u64,
-        delay: u64,
-    },
-    Wait {
-        expect_prefix: String,
-        expect_exact: String,
-        timeout: u64,
-        delay: u64,
-    },
-    WriteOnly {
-        send: RawSendable,
-        delay: u64
+#[serde(tag = "destination")]
+enum RawDestination {
+    Connection {
+        send: Option<RawSendable>,
+        expect_prefix: Option<String>,
+        expect_exact: Option<String>,
+        timeout: Option<u64>,
+        delay: Option<u64>,
     }
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawCommand {
-    command: RawType,
+    command: RawDestination,
     #[serde(default)]
     description: Option<String>,
+}
+
+impl RawCommand {
+    fn validate(&self) -> Result<()>{
+        match &self.command {
+            RawDestination::Connection { expect_prefix, expect_exact, .. } => {
+                match (expect_prefix, expect_exact) { 
+                    (Some(_), Some(_)) | (None, None) => Ok(()),
+                    _ => bail!("expect_prefix and expect_exact must both be provided or None")
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -48,29 +52,19 @@ pub enum Sendable {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Type {
-    Standard {
+pub enum Destination {
+    Connection {
         send: Sendable,
         expect_prefix: Vec<u8>,
         expect_exact: Vec<u8>,
         timeout: Duration,
-        delay: Duration,
-    },
-    Wait {
-        expect_prefix: Vec<u8>,
-        expect_exact: Vec<u8>,
-        timeout: Duration,
-        delay: Duration
-    },
-    WriteOnly {
-        send: Sendable,
         delay: Duration,
     }
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Command {
-    pub command: Type,
+    pub command: Destination,
     pub description: Option<String>,
 }
 
@@ -90,40 +84,19 @@ impl TryFrom<RawCommand> for Command {
         Ok(Command {
             command: match value.command 
             {
-                RawType::Standard 
+                RawDestination::Connection 
                 { 
                     send, 
                     expect_prefix, 
                     expect_exact, 
                     timeout, 
                     delay 
-                } => Type::Standard { 
-                    send: Sendable::try_from(send)?,
-                    expect_prefix: expect_prefix.into_bytes(), 
-                    expect_exact: expect_exact.into_bytes(), 
-                    timeout: Duration::from_secs(timeout), 
-                    delay: Duration::from_secs(delay)
-                },
-                RawType::Wait 
-                { 
-                    expect_prefix, 
-                    expect_exact, 
-                    timeout, 
-                    delay 
-                } => Type::Wait { 
-                    expect_prefix: expect_prefix.into_bytes(), 
-                    expect_exact: expect_exact.into_bytes(), 
-                    timeout: Duration::from_secs(timeout), 
-                    delay: Duration::from_secs(delay) 
-                },
-                RawType::WriteOnly 
-                { 
-                    send, 
-                    delay 
-                } => Type::WriteOnly 
-                { 
-                    send: Sendable::try_from(send)?, 
-                    delay: Duration::from_secs(delay) 
+                } => Destination::Connection { 
+                    send: send.map(|value| Sendable::try_from(value)).unwrap_or(Ok(Sendable::Text { data: Vec::new() }))?,
+                    expect_prefix: expect_prefix.map(|value| value.into_bytes()).unwrap_or(Vec::new()), 
+                    expect_exact: expect_exact.map(|value| value.into_bytes()).unwrap_or(Vec::new()), 
+                    timeout: timeout.map(|value| Duration::from_secs(value)).unwrap_or(Duration::from_secs(0)), 
+                    delay: delay.map(|value| Duration::from_secs(value)).unwrap_or(Duration::from_secs(0))
                 }
             },
             description: value.description
@@ -138,6 +111,7 @@ pub fn parse_scenario(scenario: &PathBuf) -> Result<Vec<Command>> {
     let raw_commands: Vec<RawCommand> = serde_json::from_reader(reader)?;
     let mut processed_commands: Vec<Command> = vec![];
     for raw_command in raw_commands {
+        raw_command.validate()?;
         processed_commands.push(Command::try_from(raw_command)?);
     }
     Ok(processed_commands)
