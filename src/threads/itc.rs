@@ -13,8 +13,8 @@ pub enum Messages {
 }
 
 pub struct Itc {
-    send_channel: Sender<Messages>,
-    receive_channel: Receiver<Messages>,
+    pub send_channel: Sender<Messages>,
+    pub receive_channel: Receiver<Messages>,
 }
 
 impl Itc {
