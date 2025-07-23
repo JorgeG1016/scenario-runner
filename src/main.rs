@@ -11,8 +11,6 @@ use threads::handler_thread;
 use threads::runner_thread;
 
 use crate::threads::Itc;
-use crate::threads::event_type;
-use crate::threads::runner;
 
 mod connection;
 mod interaction;

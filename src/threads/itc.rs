@@ -2,9 +2,9 @@ use chrono::{DateTime, Local};
 use std::sync::mpsc::{Receiver, Sender};
 
 pub enum Messages {
-    SendData {
-        data: Vec<u8>,
-    },
+    StartDataStream,
+    StopDataStream,
+    SendData { data: Vec<u8> },
     DataReceived {
         timestamp: DateTime<Local>,
         data: Vec<u8>,

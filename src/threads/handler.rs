@@ -21,7 +21,7 @@ pub fn thread(config: Config, runner_channels: Itc) {
             }
         };
 
-        for command in scenario_commands {
+        for (cnt, command) in scenario_commands.iter().enumerate() {
             match command.command {
                 command::Destination::Connection {
                     send,
@@ -35,7 +35,13 @@ pub fn thread(config: Config, runner_channels: Itc) {
                         Sendable::Text { data } => data,
                     };
                     thread::sleep(delay);
-                    runner_channels.send_channel.send(Messages::SendData { data: data });
+                    match runner_channels.send_channel.send(Messages::SendData { data: data }) {
+                        Err(_) => {
+                                    warn!("Command {} in {} could not be sent, skipping", cnt, scenario.display());
+                                    continue;
+                                },
+                        _ => {}
+                    }
                     let start_time = Instant::now();
                     while Instant::now() - start_time < timeout {
                         let received_data = runner_channels.receive_channel.recv();
