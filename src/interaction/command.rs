@@ -53,7 +53,7 @@ pub struct Command {
     pub description: Option<String>,
 }
 
-pub fn parse_scenario(scenario: PathBuf) -> Result<Vec<Command>> {
+pub fn parse_scenario(scenario: &PathBuf) -> Result<Vec<Command>> {
     let file = File::open(scenario)?;
     let reader = BufReader::new(file);
 
