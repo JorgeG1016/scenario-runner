@@ -1,7 +1,8 @@
 use crate::interaction::command::{self, Command, parse_scenario};
 use crate::interaction::config::Config;
-use crate::threads::Itc;
+use super::itc::{Itc, Messages};
 use log::{info, warn};
+use std::time::Instant;
 
 pub fn thread(config: Config, runner_channels: Itc) {
     info!("Starting Scenario Handler Thread");

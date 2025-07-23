@@ -1,4 +1,5 @@
-use crate::{connection::Communicate, threads::Itc};
+use crate::connection::Communicate;
+use super::itc::Itc;
 use log::info;
 
 pub fn thread(connection_handle: &mut Box<dyn Communicate + Send + 'static>, channels: Itc) {
