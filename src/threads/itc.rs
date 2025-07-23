@@ -1,10 +1,13 @@
 use chrono::{DateTime, Local};
 use std::sync::mpsc::{Receiver, Sender};
 
+#[allow(dead_code)]
 pub enum Messages {
     StartDataStream,
     StopDataStream,
-    SendData { data: Vec<u8> },
+    SendData {
+        data: Vec<u8>,
+    },
     DataReceived {
         timestamp: DateTime<Local>,
         data: Vec<u8>,

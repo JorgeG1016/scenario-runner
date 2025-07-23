@@ -1,9 +1,8 @@
 use anyhow::{Result, bail};
 use hex;
 use serde::Deserialize;
-use std::any;
-use std::{fs::File, io::BufReader, path::PathBuf};
 use std::time::Duration;
+use std::{fs::File, io::BufReader, path::PathBuf};
 
 #[derive(Deserialize)]
 #[serde(tag = "type")]
@@ -21,7 +20,7 @@ enum RawDestination {
         expect_exact: Option<String>,
         timeout: Option<u64>,
         delay: Option<u64>,
-    }
+    },
 }
 
 #[derive(Deserialize)]
@@ -33,14 +32,16 @@ struct RawCommand {
 }
 
 impl RawCommand {
-    fn validate(&self) -> Result<()>{
+    fn validate(&self) -> Result<()> {
         match &self.command {
-            RawDestination::Connection { expect_prefix, expect_exact, .. } => {
-                match (expect_prefix, expect_exact) { 
-                    (Some(_), Some(_)) | (None, None) => Ok(()),
-                    _ => bail!("expect_prefix and expect_exact must both be provided or None")
-                }
-            }
+            RawDestination::Connection {
+                expect_prefix,
+                expect_exact,
+                ..
+            } => match (expect_prefix, expect_exact) {
+                (Some(_), Some(_)) | (None, None) => Ok(()),
+                _ => bail!("expect_prefix and expect_exact must both be provided or None"),
+            },
         }
     }
 }
@@ -59,7 +60,7 @@ pub enum Destination {
         expect_exact: Vec<u8>,
         timeout: Duration,
         delay: Duration,
-    }
+    },
 }
 
 #[derive(Debug, PartialEq)]
@@ -72,34 +73,46 @@ impl TryFrom<RawSendable> for Sendable {
     type Error = anyhow::Error;
     fn try_from(value: RawSendable) -> Result<Self> {
         Ok(match value {
-            RawSendable::Hex { data } => Sendable::Hex { data: hex::decode(data)? },
-            RawSendable::Text { data } => Sendable::Text { data: data.into_bytes() }
+            RawSendable::Hex { data } => Sendable::Hex {
+                data: hex::decode(data)?,
+            },
+            RawSendable::Text { data } => Sendable::Text {
+                data: data.into_bytes(),
+            },
         })
     }
-} 
+}
 
 impl TryFrom<RawCommand> for Command {
     type Error = anyhow::Error;
     fn try_from(value: RawCommand) -> Result<Self> {
         Ok(Command {
-            command: match value.command 
-            {
-                RawDestination::Connection 
-                { 
-                    send, 
-                    expect_prefix, 
-                    expect_exact, 
-                    timeout, 
-                    delay 
-                } => Destination::Connection { 
-                    send: send.map(|value| Sendable::try_from(value)).unwrap_or(Ok(Sendable::Text { data: Vec::new() }))?,
-                    expect_prefix: expect_prefix.map(|value| value.into_bytes()).unwrap_or(Vec::new()), 
-                    expect_exact: expect_exact.map(|value| value.into_bytes()).unwrap_or(Vec::new()), 
-                    timeout: timeout.map(|value| Duration::from_secs(value)).unwrap_or(Duration::from_secs(0)), 
-                    delay: delay.map(|value| Duration::from_secs(value)).unwrap_or(Duration::from_secs(0))
-                }
+            command: match value.command {
+                RawDestination::Connection {
+                    send,
+                    expect_prefix,
+                    expect_exact,
+                    timeout,
+                    delay,
+                } => Destination::Connection {
+                    send: send
+                        .map(Sendable::try_from)
+                        .unwrap_or(Ok(Sendable::Text { data: Vec::new() }))?,
+                    expect_prefix: expect_prefix
+                        .map(|value| value.into_bytes())
+                        .unwrap_or(Vec::new()),
+                    expect_exact: expect_exact
+                        .map(|value| value.into_bytes())
+                        .unwrap_or(Vec::new()),
+                    timeout: timeout
+                        .map(Duration::from_secs)
+                        .unwrap_or(Duration::from_secs(0)),
+                    delay: delay
+                        .map(Duration::from_secs)
+                        .unwrap_or(Duration::from_secs(0)),
+                },
             },
-            description: value.description
+            description: value.description,
         })
     }
 }

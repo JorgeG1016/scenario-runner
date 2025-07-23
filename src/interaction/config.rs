@@ -57,7 +57,7 @@ impl Config {
                 .map(|s| temp_path.join(s))
                 .collect(),
         };
-        
+
         Ok(processed_config)
     }
 }
