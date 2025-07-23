@@ -5,9 +5,14 @@ use connection::usb::Connection as UsbConnection;
 use env_logger::{self, TimestampPrecision};
 use interaction::config::{Config, ConnectionType};
 use log::{error, info};
+use std::sync::mpsc;
 use std::thread;
-use threads::runner_thread;
 use threads::handler_thread;
+use threads::runner_thread;
+
+use crate::threads::Itc;
+use crate::threads::event_type;
+use crate::threads::runner;
 
 mod connection;
 mod interaction;
@@ -61,11 +66,17 @@ fn main() {
             Box::new(usb_connection)
         }
     };
-    
 
-    let handler_handle = thread::spawn(move || handler_thread(current_config));
+    let (handler_tx, handler_rx) = mpsc::channel();
+    let (runner_tx, runner_rx) = mpsc::channel();
 
-    let runner_handle = thread::spawn(move || runner_thread(&mut opened_connection));
+    let handler_channels = Itc::new(handler_tx, runner_rx);
+    let runner_channels = Itc::new(runner_tx, handler_rx);
+
+    let handler_handle = thread::spawn(move || handler_thread(current_config, handler_channels));
+    let runner_handle =
+        thread::spawn(move || runner_thread(&mut opened_connection, runner_channels));
+
     let _ = handler_handle.join();
     let _ = runner_handle.join();
 }
