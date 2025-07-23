@@ -1,4 +1,4 @@
-use anyhow::{Error, Result};
+use anyhow::{Result};
 use hex;
 use serde::Deserialize;
 use std::{fs::File, io::BufReader, path::PathBuf};
