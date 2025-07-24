@@ -1,6 +1,7 @@
 use super::itc::{Itc, Message};
 use crate::interaction::command::{self, Sendable, parse_scenario};
 use crate::interaction::config::Config;
+use crate::threads::runner;
 use log::{info, warn};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -55,12 +56,25 @@ pub fn thread(config: Config, runner_channels: Itc) {
                         }
 
                         if let Ok(message) = runner_channels.receive_timeout(remaining_time) {
-                            match message {
-                                Message::DataReceived { timestamp, data } => {}
-                                _ => {
-                                    warn!("Received something unexpected from runner")
+                            if expect_prefix.len() > 0 {
+                                match message {
+                                    Message::DataReceived {  data , ..} => {
+                                        if data.starts_with(&expect_prefix) {
+                                            if data == expect_exact {
+                                                info!("Command Passed");
+                                                break;
+                                            }
+                                            else {
+                                                info!("Command Failed");
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        warn!("Received something unexpected from runner")
+                                    }
                                 }
-                            }
+                            }  
                         }
                         let _received_data = runner_channels.receive_timeout(remaining_time);
                     }

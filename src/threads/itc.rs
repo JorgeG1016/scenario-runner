@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Result};
 use chrono::{DateTime, Local};
 use std::{
     sync::mpsc::{Receiver, Sender},
@@ -15,13 +15,14 @@ pub enum Message {
     DataReceived {
         timestamp: DateTime<Local>,
         data: Vec<u8>,
+        data_length: usize
     },
     StopRunning,
 }
 
 pub struct Itc {
-    pub send_channel: Sender<Message>,
-    pub receive_channel: Receiver<Message>,
+    send_channel: Sender<Message>,
+    receive_channel: Receiver<Message>,
 }
 
 impl Itc {
@@ -49,5 +50,9 @@ impl Itc {
 
     pub fn receive_timeout(&self, timeout: Duration) -> Result<Message> {
         Ok(self.receive_channel.recv_timeout(timeout)?)
+    }
+
+    pub fn send(&self, message: Message) -> Result<()> {
+        Ok(self.send_channel.send(message)?)
     }
 }
