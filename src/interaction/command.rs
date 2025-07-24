@@ -37,10 +37,11 @@ impl RawCommand {
             RawDestination::Connection {
                 expect_prefix,
                 expect_exact,
+                timeout
                 ..
-            } => match (expect_prefix, expect_exact) {
-                (Some(_), Some(_)) | (None, None) => Ok(()),
-                _ => bail!("expect_prefix and expect_exact must both be provided or None"),
+            } => match (expect_prefix, expect_exact, timeout) {
+                (Some(_), Some(_), Some(_)) | (None, None, None) => Ok(()),
+                _ => bail!("expect_prefix, expect_exact, and timeout must all be provided or None"),
             },
         }
     }
