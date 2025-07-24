@@ -52,35 +52,40 @@ pub fn thread(config: Config, runner_channels: Itc) {
                             .unwrap_or(Duration::from_secs(0));
 
                         if remaining_time.is_zero() {
-                            trace!("Command timed out, expected prefix or response was not received");
+                            trace!(
+                                "Command timed out, expected prefix or response was not received"
+                            );
                             break;
                         }
 
                         if let Ok(message) = runner_channels.receive_timeout(remaining_time) {
                             if !expect_prefix.is_empty() {
                                 match message {
-                                    Message::DataReceived {  data , ..} => {
+                                    Message::DataReceived { data, .. } => {
                                         if data.starts_with(&expect_prefix) {
                                             if data == expect_exact {
                                                 trace!("Found exact response");
                                                 break;
-                                            }
-                                            else {
-                                                trace!("Found expected prefix, but response didn't match");
+                                            } else {
+                                                trace!(
+                                                    "Found expected prefix, but response didn't match"
+                                                );
                                                 break;
                                             }
                                         }
-                                    },
-                                    Message::SendError | Message::ReceiveError=> {
-                                        error!("Something went wrong with the connection, shutting down program");
+                                    }
+                                    Message::SendError | Message::ReceiveError => {
+                                        error!(
+                                            "Something went wrong with the connection, shutting down program"
+                                        );
                                         let _ = runner_channels.send(Message::StopRunning);
                                         break 'scenario_loop;
-                                    },
+                                    }
                                     _ => {
                                         warn!("Received something unexpected from runner")
                                     }
                                 }
-                            }  
+                            }
                         }
                     }
                 }

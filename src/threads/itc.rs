@@ -1,4 +1,4 @@
-use anyhow::{Result};
+use anyhow::Result;
 use chrono::{DateTime, Local};
 use std::{
     sync::mpsc::{Receiver, Sender},
@@ -15,11 +15,11 @@ pub enum Message {
     DataReceived {
         timestamp: DateTime<Local>,
         data: Vec<u8>,
-        data_length: usize
+        data_length: usize,
     },
     StopRunning,
     SendError,
-    ReceiveError
+    ReceiveError,
 }
 
 pub struct Itc {
