@@ -37,7 +37,7 @@ impl RawCommand {
             RawDestination::Connection {
                 expect_prefix,
                 expect_exact,
-                timeout
+                timeout,
                 ..
             } => match (expect_prefix, expect_exact, timeout) {
                 (Some(_), Some(_), Some(_)) | (None, None, None) => Ok(()),
