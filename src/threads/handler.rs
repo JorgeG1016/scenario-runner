@@ -1,14 +1,13 @@
 use super::itc::{Itc, Message};
 use crate::interaction::command::{self, Sendable, parse_scenario};
 use crate::interaction::config::Config;
-use crate::threads::runner;
-use log::{info, warn};
+use log::{error, info, trace, warn};
 use std::thread;
 use std::time::{Duration, Instant};
 
 pub fn thread(config: Config, runner_channels: Itc) {
-    info!("Starting Scenario Handler Thread");
-    for scenario in config.scenarios {
+    info!("Starting Scenario Handler Thread!");
+    'scenario_loop: for scenario in config.scenarios {
         if !scenario.is_file() {
             warn!("{} does not exist, skipping", scenario.display());
             continue;
@@ -37,6 +36,7 @@ pub fn thread(config: Config, runner_channels: Itc) {
                     };
                     thread::sleep(delay);
                     let start_sequence = vec![Message::SendData { data }, Message::StartDataStream];
+                    trace!("Sending command {} in scenario {}", cnt, scenario.display());
                     if runner_channels.send_all(start_sequence).is_err() {
                         warn!(
                             "Command {} in {} could not be sent, skipping",
@@ -52,34 +52,40 @@ pub fn thread(config: Config, runner_channels: Itc) {
                             .unwrap_or(Duration::from_secs(0));
 
                         if remaining_time.is_zero() {
+                            trace!("Command timed out, expected prefix or response was not received");
                             break;
                         }
 
                         if let Ok(message) = runner_channels.receive_timeout(remaining_time) {
-                            if expect_prefix.len() > 0 {
+                            if !expect_prefix.is_empty() {
                                 match message {
                                     Message::DataReceived {  data , ..} => {
                                         if data.starts_with(&expect_prefix) {
                                             if data == expect_exact {
-                                                info!("Command Passed");
+                                                trace!("Found exact response");
                                                 break;
                                             }
                                             else {
-                                                info!("Command Failed");
+                                                trace!("Found expected prefix, but response didn't match");
                                                 break;
                                             }
                                         }
-                                    }
+                                    },
+                                    Message::SendError | Message::ReceiveError=> {
+                                        error!("Something went wrong with the connection, shutting down program");
+                                        let _ = runner_channels.send(Message::StopRunning);
+                                        break 'scenario_loop;
+                                    },
                                     _ => {
                                         warn!("Received something unexpected from runner")
                                     }
                                 }
                             }  
                         }
-                        let _received_data = runner_channels.receive_timeout(remaining_time);
                     }
                 }
             };
         }
     }
+    info!("Stopping Scenario Handler Thread!");
 }

@@ -65,6 +65,7 @@ fn main() {
         }
     };
 
+    // handler thread is sort of the hub, needs to be connected to other threads
     let (handler_tx, handler_rx) = mpsc::channel();
     let (runner_tx, runner_rx) = mpsc::channel();
 

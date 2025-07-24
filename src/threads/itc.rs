@@ -18,6 +18,8 @@ pub enum Message {
         data_length: usize
     },
     StopRunning,
+    SendError,
+    ReceiveError
 }
 
 pub struct Itc {
