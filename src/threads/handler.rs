@@ -25,9 +25,10 @@ pub fn thread(config: Config, runner_channels: Itc) {
             match command.command {
                 command::Destination::Connection {
                     send,
+                    expect_exact,
+                    expect_prefix,
                     timeout,
                     delay,
-                    ..
                 } => {
                     let data = match send {
                         Sendable::Hex { data } => data,
@@ -51,6 +52,15 @@ pub fn thread(config: Config, runner_channels: Itc) {
 
                         if remaining_time.is_zero() {
                             break;
+                        }
+
+                        if let Ok(message) = runner_channels.receive_timeout(remaining_time) {
+                            match message {
+                                Message::DataReceived { timestamp, data } => {}
+                                _ => {
+                                    warn!("Received something unexpected from runner")
+                                }
+                            }
                         }
                         let _received_data = runner_channels.receive_timeout(remaining_time);
                     }
