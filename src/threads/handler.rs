@@ -1,13 +1,13 @@
 use super::itc::{Itc, Message};
 use crate::interaction::command::{self, Sendable, parse_scenario};
-use crate::interaction::config::Config;
 use log::{error, info, trace, warn};
+use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub fn thread(config: Config, runner_channels: Itc) {
+pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Itc) {
     info!("Starting Scenario Handler Thread!");
-    'scenario_loop: for scenario in config.scenarios {
+    'scenario_loop: for scenario in scenarios {
         if !scenario.is_file() {
             warn!("{} does not exist, skipping", scenario.display());
             continue;
@@ -98,7 +98,8 @@ pub fn thread(config: Config, runner_channels: Itc) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{path::PathBuf, sync::mpsc::channel};
+    use std::{io::Write, path::PathBuf, sync::mpsc::channel, vec};
+    use tempfile::NamedTempFile;
 
     fn setup() -> (Itc, Itc) {
         let (test_tx, test_rx) = channel();
@@ -111,11 +112,43 @@ mod tests {
 
     #[test]
     fn thread_no_scenarios() {
-        let test_config = Config {
-            scenarios: Vec::new(), 
-            scenarios_location: PathBuf::from("."), 
-            results_location: PathBuf::from("."),
-            connection: crate::interaction::config::ConnectionType::Tcp { address: String::from("0.0.0.0"), port: 80 }};
         let (unit_channel, thread_channel) = setup();
+
+        let handle = thread::spawn(move || thread(Vec::new(), thread_channel));
+        let received_message = unit_channel.receive_timeout(Duration::from_secs(5)).expect("Should've received a runner stop message");
+        
+        assert!(matches!(received_message, Message::StopRunning), "Unexpectedly received something else");
+        assert!(handle.join().is_ok(), "Thread joined with fail")
+    }
+
+    #[test]
+    fn thread_invalid_scenario() {
+        let (unit_channel, thread_channel) = setup();
+        let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+        let raw_json = r#"
+            [
+                {
+                    "command": {
+                        "destination": "Connection",
+                        "send": {
+                            "type": "Text",
+                            "data": "Hello"
+                        },
+                        "expect_prefix": "This is the fixed sentence that always",
+                        "expect_exact": "This is the fixed sentence that always appears",
+                        "timeout": 240,
+                        "delay": 0,
+                    }
+                }
+            ]
+            "#;
+        temp_file.write_all(raw_json.as_bytes()).expect("Failed to write dummy scenario");
+        let scenarios = vec![temp_file.path().to_path_buf()];
+
+        let handle = thread::spawn(move || thread(scenarios, thread_channel));
+        let received_message = unit_channel.receive_timeout(Duration::from_secs(5)).expect("Should've received a runner stop message");
+
+        assert!(matches!(received_message, Message::StopRunning), "Unexpectedly received something else");
+        assert!(handle.join().is_ok(), "Thread joined with fail")
     }
 }

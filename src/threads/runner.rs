@@ -182,6 +182,7 @@ mod tests {
         unit_channel
             .send(Message::StopRunning)
             .expect("Failed to send stop running message");
+
         assert!(handle.join().is_ok(), "Thread stopped with error thread")
     }
 
@@ -236,6 +237,7 @@ mod tests {
         unit_channel
             .send(Message::StopRunning)
             .expect("Failed to send stop running message");
+
         assert!(handle.join().is_ok(), "Thread stopped with error thread")
     }
 
@@ -271,6 +273,7 @@ mod tests {
         //Kinda goofy, but there's one more message between the read and stream being stopped
         let _ = unit_channel.receive_timeout(Duration::from_secs(5));
         assert!(unit_channel.receive_timeout(Duration::from_secs(5)).is_err(), "Unexpectedly received data");
+
         unit_channel
             .send(Message::StopRunning)
             .expect("Failed to send stop running message");
@@ -285,6 +288,7 @@ mod tests {
 
         let received_message = unit_channel.receive_timeout(Duration::from_secs(10)).expect("Did not receive anything from thread");
         assert!(matches!(received_message, Message::ReceiveError), "Unexpectedly received something else");
+
         unit_channel
             .send(Message::StopRunning)
             .expect("Failed to send stop running message");
@@ -302,8 +306,10 @@ mod tests {
                 data: Vec::from("Hello World!"),
             })
             .expect("Failed to send send data message");
+
         let received_message = unit_channel.receive_timeout(Duration::from_secs(10)).expect("Did not receive anything from thread");
         assert!(matches!(received_message, Message::SendError), "Unexpectedly received something else");
+        
         unit_channel
             .send(Message::StopRunning)
             .expect("Failed to send stop running message");
