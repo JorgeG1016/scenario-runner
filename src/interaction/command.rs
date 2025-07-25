@@ -130,3 +130,151 @@ pub fn parse_scenario(scenario: &PathBuf) -> Result<Vec<Command>> {
     }
     Ok(processed_commands)
 }
+
+#[cfg(test)]
+mod tests {
+    
+    use std::io::Write;
+
+    use super::*;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn parse_scenario_single_pass() {
+        let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+        let raw_json = r#"
+            [
+                {
+                    "command": {
+                        "destination": "Connection",
+                        "send": {
+                            "type": "Text",
+                            "data": "Hello"
+                        },
+                        "expect_prefix": "This is the fixed sentence that always",
+                        "expect_exact": "This is the fixed sentence that always appears",
+                        "timeout": 240,
+                        "delay": 0
+                    }
+                }
+            ]
+            "#;
+        temp_file.write_all(raw_json.as_bytes()).expect("Failed to write JSON");
+        let scenario = temp_file.path().to_path_buf();
+
+        let result = parse_scenario(&scenario).expect("Failed to parse scenario");
+        let assert_command = Command{
+            command: Destination::Connection { 
+                send: Sendable::Text { data: Vec::from("Hello") }, 
+                expect_prefix: Vec::from("This is the fixed sentence that always"), 
+                expect_exact: Vec::from("This is the fixed sentence that always appears"), 
+                timeout: Duration::from_secs(240), 
+                delay: Duration::from_secs(0)
+            },
+            description: None
+        };
+
+        assert_eq!(result[0], assert_command, "Failed to parse scenario");
+    }
+
+    #[test]
+    fn parse_scenario_multiple_pass() {
+        let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+        let raw_json = r#"
+            [
+                {
+                    "command": {
+                        "destination": "Connection",
+                        "send": {
+                            "type": "Text",
+                            "data": "Hello"
+                        },
+                        "expect_prefix": "This is the fixed sentence that always",
+                        "expect_exact": "This is the fixed sentence that always appears",
+                        "timeout": 240,
+                        "delay": 0
+                    }
+                },
+                {
+                    "command": {
+                        "destination": "Connection",
+                        "send": {
+                            "type": "Hex",
+                            "data": "deadbeef"
+                        },
+                        "expect_prefix": "This is the fixed sentence that always",
+                        "expect_exact": "This is the fixed sentence that always appears",
+                        "timeout": 240,
+                        "delay": 0
+                    }
+                }
+            ]
+            "#;
+        temp_file.write_all(raw_json.as_bytes()).expect("Failed to write JSON");
+        let scenario = temp_file.path().to_path_buf();
+
+        let result = parse_scenario(&scenario).expect("Failed to parse scenario");
+        let assert_text_command = Command{
+            command: Destination::Connection { 
+                send: Sendable::Text { data: Vec::from("Hello") }, 
+                expect_prefix: Vec::from("This is the fixed sentence that always"), 
+                expect_exact: Vec::from("This is the fixed sentence that always appears"), 
+                timeout: Duration::from_secs(240), 
+                delay: Duration::from_secs(0)
+            },
+            description: None
+        };
+        let assert_hex_command = Command{
+            command: Destination::Connection { 
+                send: Sendable::Hex { data: vec![0xde, 0xad, 0xbe, 0xef] }, 
+                expect_prefix: Vec::from("This is the fixed sentence that always"), 
+                expect_exact: Vec::from("This is the fixed sentence that always appears"), 
+                timeout: Duration::from_secs(240), 
+                delay: Duration::from_secs(0)
+            },
+            description: None
+        };
+
+        assert_eq!(result[0], assert_text_command, "Failed to parse scenario");
+        assert_eq!(result[1], assert_hex_command, "Failed to parse scenario");
+    }
+
+    #[test]
+    fn parse_scenario_invalid_command() {
+        let mut temp_file = NamedTempFile::new().expect("Failed to create temp file");
+        let raw_json = r#"
+            [
+                {
+                    "command": {
+                        "destination": "Connection",
+                        "send": {
+                            "type": "Text",
+                            "data": "Hello"
+                        },
+                        "expect_prefix": "This is the fixed sentence that always",
+                        "expect_exact": "This is the fixed sentence that always appears",
+                        "timeout": 240,
+                        "delay": 0
+                    }
+                },
+                {
+                    "command": {
+                        "destination": "Connection",
+                        "send": {
+                            "type": "Hex",
+                            "data": "deadbeef"
+                        },
+                        "expect_prefix": "This is the fixed sentence that always",
+                        "timeout": 240,
+                        "delay": 0
+                    }
+                }
+            ]
+            "#;
+        temp_file.write_all(raw_json.as_bytes()).expect("Failed to write JSON");
+        let scenario = temp_file.path().to_path_buf();
+
+        let result = parse_scenario(&scenario);
+        assert!(result.is_err(), "Somehow the JSON was actually valid");
+    }
+}
