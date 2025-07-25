@@ -78,7 +78,6 @@ pub fn thread(config: Config, runner_channels: Itc) {
                                         error!(
                                             "Something went wrong with the connection, shutting down program"
                                         );
-                                        let _ = runner_channels.send(Message::StopRunning);
                                         break 'scenario_loop;
                                     }
                                     _ => {
@@ -92,5 +91,31 @@ pub fn thread(config: Config, runner_channels: Itc) {
             };
         }
     }
+    let _ = runner_channels.send(Message::StopRunning);
     info!("Stopping Scenario Handler Thread!");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{path::PathBuf, sync::mpsc::channel};
+
+    fn setup() -> (Itc, Itc) {
+        let (test_tx, test_rx) = channel();
+        let (thread_tx, thread_rx) = channel();
+        (
+            Itc::new(test_tx, thread_rx),
+            Itc::new(thread_tx, test_rx),
+        )
+    }
+
+    #[test]
+    fn thread_no_scenarios() {
+        let test_config = Config {
+            scenarios: Vec::new(), 
+            scenarios_location: PathBuf::from("."), 
+            results_location: PathBuf::from("."),
+            connection: crate::interaction::config::ConnectionType::Tcp { address: String::from("0.0.0.0"), port: 80 }};
+        let (unit_channel, thread_channel) = setup();
+    }
 }
