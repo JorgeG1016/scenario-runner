@@ -133,7 +133,7 @@ pub fn parse_scenario(scenario: &PathBuf) -> Result<Vec<Command>> {
 
 #[cfg(test)]
 mod tests {
-    
+
     use std::io::Write;
 
     use super::*;
@@ -159,19 +159,23 @@ mod tests {
                 }
             ]
             "#;
-        temp_file.write_all(raw_json.as_bytes()).expect("Failed to write JSON");
+        temp_file
+            .write_all(raw_json.as_bytes())
+            .expect("Failed to write JSON");
         let scenario = temp_file.path().to_path_buf();
 
         let result = parse_scenario(&scenario).expect("Failed to parse scenario");
-        let assert_command = Command{
-            command: Destination::Connection { 
-                send: Sendable::Text { data: Vec::from("Hello") }, 
-                expect_prefix: Vec::from("This is the fixed sentence that always"), 
-                expect_exact: Vec::from("This is the fixed sentence that always appears"), 
-                timeout: Duration::from_secs(240), 
-                delay: Duration::from_secs(0)
+        let assert_command = Command {
+            command: Destination::Connection {
+                send: Sendable::Text {
+                    data: Vec::from("Hello"),
+                },
+                expect_prefix: Vec::from("This is the fixed sentence that always"),
+                expect_exact: Vec::from("This is the fixed sentence that always appears"),
+                timeout: Duration::from_secs(240),
+                delay: Duration::from_secs(0),
             },
-            description: None
+            description: None,
         };
 
         assert_eq!(result[0], assert_command, "Failed to parse scenario");
@@ -210,29 +214,35 @@ mod tests {
                 }
             ]
             "#;
-        temp_file.write_all(raw_json.as_bytes()).expect("Failed to write JSON");
+        temp_file
+            .write_all(raw_json.as_bytes())
+            .expect("Failed to write JSON");
         let scenario = temp_file.path().to_path_buf();
 
         let result = parse_scenario(&scenario).expect("Failed to parse scenario");
-        let assert_text_command = Command{
-            command: Destination::Connection { 
-                send: Sendable::Text { data: Vec::from("Hello") }, 
-                expect_prefix: Vec::from("This is the fixed sentence that always"), 
-                expect_exact: Vec::from("This is the fixed sentence that always appears"), 
-                timeout: Duration::from_secs(240), 
-                delay: Duration::from_secs(0)
+        let assert_text_command = Command {
+            command: Destination::Connection {
+                send: Sendable::Text {
+                    data: Vec::from("Hello"),
+                },
+                expect_prefix: Vec::from("This is the fixed sentence that always"),
+                expect_exact: Vec::from("This is the fixed sentence that always appears"),
+                timeout: Duration::from_secs(240),
+                delay: Duration::from_secs(0),
             },
-            description: None
+            description: None,
         };
-        let assert_hex_command = Command{
-            command: Destination::Connection { 
-                send: Sendable::Hex { data: vec![0xde, 0xad, 0xbe, 0xef] }, 
-                expect_prefix: Vec::from("This is the fixed sentence that always"), 
-                expect_exact: Vec::from("This is the fixed sentence that always appears"), 
-                timeout: Duration::from_secs(240), 
-                delay: Duration::from_secs(0)
+        let assert_hex_command = Command {
+            command: Destination::Connection {
+                send: Sendable::Hex {
+                    data: vec![0xde, 0xad, 0xbe, 0xef],
+                },
+                expect_prefix: Vec::from("This is the fixed sentence that always"),
+                expect_exact: Vec::from("This is the fixed sentence that always appears"),
+                timeout: Duration::from_secs(240),
+                delay: Duration::from_secs(0),
             },
-            description: None
+            description: None,
         };
 
         assert_eq!(result[0], assert_text_command, "Failed to parse scenario");
@@ -271,7 +281,9 @@ mod tests {
                 }
             ]
             "#;
-        temp_file.write_all(raw_json.as_bytes()).expect("Failed to write JSON");
+        temp_file
+            .write_all(raw_json.as_bytes())
+            .expect("Failed to write JSON");
         let scenario = temp_file.path().to_path_buf();
 
         let result = parse_scenario(&scenario);

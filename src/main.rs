@@ -72,7 +72,8 @@ fn main() {
     let handler_channels = Itc::new(handler_tx, runner_rx);
     let runner_channels = Itc::new(runner_tx, handler_rx);
 
-    let handler_handle = thread::spawn(move || handler_thread(current_config.scenarios, handler_channels));
+    let handler_handle =
+        thread::spawn(move || handler_thread(current_config.scenarios, handler_channels));
     let runner_handle =
         thread::spawn(move || runner_thread(&mut opened_connection, runner_channels));
 

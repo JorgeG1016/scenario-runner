@@ -104,10 +104,7 @@ mod tests {
     fn setup() -> (Itc, Itc) {
         let (test_tx, test_rx) = channel();
         let (thread_tx, thread_rx) = channel();
-        (
-            Itc::new(test_tx, thread_rx),
-            Itc::new(thread_tx, test_rx),
-        )
+        (Itc::new(test_tx, thread_rx), Itc::new(thread_tx, test_rx))
     }
 
     #[test]
@@ -115,9 +112,14 @@ mod tests {
         let (unit_channel, thread_channel) = setup();
 
         let handle = thread::spawn(move || thread(Vec::new(), thread_channel));
-        let received_message = unit_channel.receive_timeout(Duration::from_secs(5)).expect("Should've received a runner stop message");
+        let received_message = unit_channel
+            .receive_timeout(Duration::from_secs(5))
+            .expect("Should've received a runner stop message");
 
-        assert!(matches!(received_message, Message::StopRunning), "Unexpectedly received something else");
+        assert!(
+            matches!(received_message, Message::StopRunning),
+            "Unexpectedly received something else"
+        );
         assert!(handle.join().is_ok(), "Thread joined with fail")
     }
 
@@ -126,9 +128,14 @@ mod tests {
         let (unit_channel, thread_channel) = setup();
 
         let handle = thread::spawn(move || thread(vec![PathBuf::from(".")], thread_channel));
-        let received_message = unit_channel.receive_timeout(Duration::from_secs(5)).expect("Should've received a runner stop message");
+        let received_message = unit_channel
+            .receive_timeout(Duration::from_secs(5))
+            .expect("Should've received a runner stop message");
 
-        assert!(matches!(received_message, Message::StopRunning), "Unexpectedly received something else");
+        assert!(
+            matches!(received_message, Message::StopRunning),
+            "Unexpectedly received something else"
+        );
         assert!(handle.join().is_ok(), "Thread joined with fail")
     }
 
@@ -153,13 +160,20 @@ mod tests {
                 }
             ]
             "#;
-        temp_file.write_all(raw_json.as_bytes()).expect("Failed to write dummy scenario");
+        temp_file
+            .write_all(raw_json.as_bytes())
+            .expect("Failed to write dummy scenario");
         let scenarios = vec![temp_file.path().to_path_buf()];
 
         let handle = thread::spawn(move || thread(scenarios, thread_channel));
-        let received_message = unit_channel.receive_timeout(Duration::from_secs(5)).expect("Should've received a runner stop message");
+        let received_message = unit_channel
+            .receive_timeout(Duration::from_secs(5))
+            .expect("Should've received a runner stop message");
 
-        assert!(matches!(received_message, Message::StopRunning), "Unexpectedly received something else");
+        assert!(
+            matches!(received_message, Message::StopRunning),
+            "Unexpectedly received something else"
+        );
         assert!(handle.join().is_ok(), "Thread joined with fail")
     }
 }

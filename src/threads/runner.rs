@@ -1,7 +1,7 @@
 use super::itc::{Itc, Message};
 use crate::connection::Communicate;
 use chrono::Local;
-use log::{info, trace, warn, error};
+use log::{error, info, trace, warn};
 
 pub fn thread(connection_handle: &mut Box<dyn Communicate + Send + 'static>, channels: Itc) {
     info!("Starting Command Runner Thread!");
@@ -55,7 +55,7 @@ mod tests {
     use crate::Communicate;
     use crate::Itc;
     use pretty_assertions::assert_eq;
-    use std::io::{Read, Write, Error};
+    use std::io::{Error, Read, Write};
     use std::sync::mpsc::channel;
     use std::thread;
     use std::time::Duration;
@@ -68,7 +68,6 @@ mod tests {
 
     struct FailedReadMockConnection;
     struct FailedWriteMockConnection;
-
 
     impl Read for MockConnection {
         fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
@@ -262,17 +261,24 @@ mod tests {
 
         //Don't really care about the data, just want to make sure we got something
         match received_message {
-            Message::DataReceived { .. } => {},
+            Message::DataReceived { .. } => {}
             _ => panic!("Received the wrong data"),
         };
 
-        unit_channel.send(Message::StopDataStream).expect("Failed to send stop data stream message");
+        unit_channel
+            .send(Message::StopDataStream)
+            .expect("Failed to send stop data stream message");
         // Need to clear all messages previously sent and the last to be sent
         let _ = unit_channel.try_receive_all();
 
         //Kinda goofy, but there's one more message between the read and stream being stopped
         let _ = unit_channel.receive_timeout(Duration::from_secs(5));
-        assert!(unit_channel.receive_timeout(Duration::from_secs(5)).is_err(), "Unexpectedly received data");
+        assert!(
+            unit_channel
+                .receive_timeout(Duration::from_secs(5))
+                .is_err(),
+            "Unexpectedly received data"
+        );
 
         unit_channel
             .send(Message::StopRunning)
@@ -286,8 +292,13 @@ mod tests {
         let mut mock_connection: Box<dyn Communicate + Send + 'static> = Box::new(mock_connection);
         let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
 
-        let received_message = unit_channel.receive_timeout(Duration::from_secs(10)).expect("Did not receive anything from thread");
-        assert!(matches!(received_message, Message::ReceiveError), "Unexpectedly received something else");
+        let received_message = unit_channel
+            .receive_timeout(Duration::from_secs(10))
+            .expect("Did not receive anything from thread");
+        assert!(
+            matches!(received_message, Message::ReceiveError),
+            "Unexpectedly received something else"
+        );
 
         unit_channel
             .send(Message::StopRunning)
@@ -307,9 +318,14 @@ mod tests {
             })
             .expect("Failed to send send data message");
 
-        let received_message = unit_channel.receive_timeout(Duration::from_secs(10)).expect("Did not receive anything from thread");
-        assert!(matches!(received_message, Message::SendError), "Unexpectedly received something else");
-        
+        let received_message = unit_channel
+            .receive_timeout(Duration::from_secs(10))
+            .expect("Did not receive anything from thread");
+        assert!(
+            matches!(received_message, Message::SendError),
+            "Unexpectedly received something else"
+        );
+
         unit_channel
             .send(Message::StopRunning)
             .expect("Failed to send stop running message");
