@@ -116,7 +116,18 @@ mod tests {
 
         let handle = thread::spawn(move || thread(Vec::new(), thread_channel));
         let received_message = unit_channel.receive_timeout(Duration::from_secs(5)).expect("Should've received a runner stop message");
-        
+
+        assert!(matches!(received_message, Message::StopRunning), "Unexpectedly received something else");
+        assert!(handle.join().is_ok(), "Thread joined with fail")
+    }
+
+    #[test]
+    fn thread_scenario_not_a_file() {
+        let (unit_channel, thread_channel) = setup();
+
+        let handle = thread::spawn(move || thread(vec![PathBuf::from(".")], thread_channel));
+        let received_message = unit_channel.receive_timeout(Duration::from_secs(5)).expect("Should've received a runner stop message");
+
         assert!(matches!(received_message, Message::StopRunning), "Unexpectedly received something else");
         assert!(handle.join().is_ok(), "Thread joined with fail")
     }
