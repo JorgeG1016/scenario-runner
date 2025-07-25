@@ -58,3 +58,24 @@ impl Itc {
         Ok(self.send_channel.send(message)?)
     }
 }
+
+#[cfg(test)]
+mod tests{
+    use std::sync::mpsc::channel;
+    use super::*;
+    
+    fn setup() -> Itc {
+        let (tx, rx) = channel();
+        Itc::new(tx, rx)
+    }
+
+    #[test]
+    fn send_all_multiple_pass() {
+        let channels = setup();
+        let messages = vec![Message::StopRunning, Message::StopRunning];
+
+        channels.send_all(messages).expect("Failed to send multiple messages");
+        let messages = channels.try_receive_all().expect("Failed to receive multiple messages");
+        assert_eq!(messages.len(), 2);
+    }
+}
