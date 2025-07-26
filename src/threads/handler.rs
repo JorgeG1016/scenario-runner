@@ -1,6 +1,6 @@
 use super::itc::{Itc, Message};
 use crate::interaction::command::{self, Sendable, parse_scenario};
-use log::{error, info, trace, warn};
+use log::{debug, error, info, trace, warn};
 use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -15,8 +15,9 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Itc) {
 
         let scenario_commands = match parse_scenario(&scenario) {
             Ok(commands) => commands,
-            Err(_) => {
+            Err(msg) => {
                 warn!("{} could not be parsed, skipping", scenario.display());
+                trace!("Error while parsing: {msg}");
                 continue;
             }
         };
@@ -67,8 +68,13 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Itc) {
                                                 trace!("Found exact response");
                                                 break;
                                             } else {
-                                                trace!(
+                                                debug!(
                                                     "Found expected prefix, but response didn't match"
+                                                );
+                                                trace!(
+                                                    "Response Received: {}, Response Expected: {}",
+                                                    String::from_utf8_lossy(data.as_ref()),
+                                                    String::from_utf8_lossy(expect_exact.as_ref())
                                                 );
                                                 break;
                                             }
