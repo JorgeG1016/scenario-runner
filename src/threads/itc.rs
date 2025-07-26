@@ -97,4 +97,63 @@ mod tests {
             .expect("Failed to receive single message");
         assert_eq!(message.len(), 1);
     }
+
+    #[test]
+    fn try_receive_all_multiple_pass() {
+        let channels = setup();
+        let messages = vec![Message::StopRunning, Message::StopRunning];
+
+        channels
+            .send_all(messages)
+            .expect("Failed to send multiple messages");
+        let messages = channels
+            .try_receive_all()
+            .expect("Failed to receive multiple messages");
+        assert_eq!(messages.len(), 2);
+    }
+
+    #[test]
+    fn try_receive_all_nothing_pass() {
+        let channels = setup();
+        let result = channels.try_receive_all();
+
+        assert!(result.is_ok(), "Failed to fail at receiving data");
+    }
+
+    #[test]
+    fn receive_timeout_timed_out_fail() {
+        let channels = setup();
+        let result = channels.receive_timeout(Duration::from_secs(2));
+
+        assert!(result.is_err(), "Failed to timeout");
+    }
+
+    #[test]
+    fn receive_timeout_pass() {
+        let channels = setup();
+        channels
+            .send(Message::StopRunning)
+            .expect("Failed to send message");
+
+        let result = channels.receive_timeout(Duration::from_secs(2));
+
+        assert!(result.is_ok(), "Failed to get message");
+    }
+
+    #[test]
+    fn send_pass() {
+        let channels = setup();
+        channels
+            .send(Message::StopRunning)
+            .expect("Failed to send message");
+
+        let result = channels
+            .receive_timeout(Duration::from_secs(2))
+            .expect("Failed to receive message");
+
+        assert!(
+            matches!(result, Message::StopRunning),
+            "Something unexpected received"
+        );
+    }
 }
