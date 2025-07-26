@@ -80,7 +80,7 @@ mod tests {
         write(master_pty.as_fd(), message).expect("Dummy port write failed");
 
         let mut buf: [u8; 12] = [0; 12];
-        new_connection
+        let _ = new_connection
             .read(&mut buf)
             .expect("Serial port read failed");
         assert_eq!(buf.as_slice(), message);
@@ -96,7 +96,7 @@ mod tests {
             Connection::new(dummy_port_path, 115200).expect("Failed to open dummy serial port");
 
         let message = b"Hello World!";
-        new_connection
+        let _ = new_connection
             .write(message)
             .expect("Serial port write failed");
         new_connection.flush().expect("Serial Port flush failed");
