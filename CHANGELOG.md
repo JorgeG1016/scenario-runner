@@ -22,4 +22,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 
-[unreleased]: https://github.com/JorgeG1016/command-runner/compare/v0.1.0...HEAD
+[unreleased]: https://github.com/JorgeG1016/scenario-runner/compare/v0.1.0...HEAD
