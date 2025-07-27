@@ -8,6 +8,7 @@ anyhow = "1.0.98"
 chrono = "0.4.41"
 clap = { version = "4.5.40", features = ["derive"] }
 colored = "3.0.0"
+crossbeam = { version = "0.8.4", features = ["crossbeam-channel"] }
 env_logger = "0.11.8"
 hex = "0.4.3"
 log = "0.4.27"

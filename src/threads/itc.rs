@@ -1,12 +1,10 @@
 use anyhow::Result;
 use chrono::{DateTime, Local};
-use std::{
-    sync::mpsc::{Receiver, Sender},
-    time::Duration,
-};
+use crossbeam::channel::{Receiver, Sender};
+use std::time::Duration;
 
-#[allow(dead_code)]
-pub enum Message {
+#[derive(Debug, Clone, PartialEq)]
+pub enum Data {
     StartDataStream,
     StopDataStream,
     SendData {
@@ -22,22 +20,38 @@ pub enum Message {
     ReceiveError,
 }
 
-pub struct Itc {
+#[derive(Debug, Clone, PartialEq)]
+pub struct Message {
+    source: String,
+    data: Data,
+}
+
+#[derive(Debug, Clone)]
+pub struct Endpoints {
+    source: String,
     send_channel: Sender<Message>,
     receive_channel: Receiver<Message>,
 }
 
-impl Itc {
-    pub fn new(send_channel: Sender<Message>, receive_channel: Receiver<Message>) -> Self {
+impl Endpoints {
+    pub fn new(
+        source: String,
+        send_channel: Sender<Message>,
+        receive_channel: Receiver<Message>,
+    ) -> Self {
         Self {
+            source,
             send_channel,
             receive_channel,
         }
     }
 
-    pub fn send_all(&self, messages: Vec<Message>) -> Result<()> {
-        for message in messages {
-            self.send_channel.send(message)?;
+    pub fn send_all(&self, data_to_send: Vec<Data>) -> Result<()> {
+        for data in data_to_send {
+            self.send_channel.send(Message {
+                source: self.source.clone(),
+                data,
+            })?;
         }
         Ok(())
     }
@@ -54,29 +68,32 @@ impl Itc {
         Ok(self.receive_channel.recv_timeout(timeout)?)
     }
 
-    pub fn send(&self, message: Message) -> Result<()> {
-        Ok(self.send_channel.send(message)?)
+    pub fn send(&self, data: Data) -> Result<()> {
+        Ok(self.send_channel.send(Message {
+            source: self.source.clone(),
+            data,
+        })?)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crossbeam::channel;
     use pretty_assertions::assert_eq;
-    use std::sync::mpsc::channel;
 
-    fn setup() -> Itc {
-        let (tx, rx) = channel();
-        Itc::new(tx, rx)
+    fn setup() -> Endpoints {
+        let (tx, rx) = channel::unbounded();
+        Endpoints::new("unit".to_string(), tx, rx)
     }
 
     #[test]
     fn send_all_multiple_pass() {
         let channels = setup();
-        let messages = vec![Message::StopRunning, Message::StopRunning];
+        let data_to_send = vec![Data::StopRunning, Data::StopRunning];
 
         channels
-            .send_all(messages)
+            .send_all(data_to_send)
             .expect("Failed to send multiple messages");
         let messages = channels
             .try_receive_all()
@@ -87,10 +104,10 @@ mod tests {
     #[test]
     fn try_receive_all_single_pass() {
         let channels = setup();
-        let message = Message::StopRunning;
+        let data_to_send = Data::StopRunning;
 
         channels
-            .send(message)
+            .send(data_to_send)
             .expect("Failed to send single message");
         let message = channels
             .try_receive_all()
@@ -101,10 +118,10 @@ mod tests {
     #[test]
     fn try_receive_all_multiple_pass() {
         let channels = setup();
-        let messages = vec![Message::StopRunning, Message::StopRunning];
+        let data_to_send = vec![Data::StopRunning, Data::StopRunning];
 
         channels
-            .send_all(messages)
+            .send_all(data_to_send)
             .expect("Failed to send multiple messages");
         let messages = channels
             .try_receive_all()
@@ -132,7 +149,7 @@ mod tests {
     fn receive_timeout_pass() {
         let channels = setup();
         channels
-            .send(Message::StopRunning)
+            .send(Data::StopRunning)
             .expect("Failed to send message");
 
         let result = channels.receive_timeout(Duration::from_secs(2));
@@ -144,16 +161,19 @@ mod tests {
     fn send_pass() {
         let channels = setup();
         channels
-            .send(Message::StopRunning)
+            .send(Data::StopRunning)
             .expect("Failed to send message");
 
         let result = channels
             .receive_timeout(Duration::from_secs(2))
             .expect("Failed to receive message");
 
-        assert!(
-            matches!(result, Message::StopRunning),
-            "Something unexpected received"
+        assert_eq!(
+            result,
+            Message {
+                source: channels.source,
+                data: Data::StopRunning
+            }
         );
     }
 }
