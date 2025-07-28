@@ -4,7 +4,7 @@ use crossbeam::channel::{Receiver, Sender};
 use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Data {
+pub enum Event {
     StartDataStream,
     StopDataStream,
     SendData {
@@ -23,7 +23,7 @@ pub enum Data {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Message {
     pub source: String,
-    pub data: Data,
+    pub event: Event,
 }
 
 #[derive(Debug, Clone)]
@@ -46,11 +46,11 @@ impl Endpoints {
         }
     }
 
-    pub fn send_all(&self, data_to_send: Vec<Data>) -> Result<()> {
+    pub fn send_all(&self, data_to_send: Vec<Event>) -> Result<()> {
         for data in data_to_send {
             self.send_channel.send(Message {
                 source: self.source.clone(),
-                data,
+                event: data,
             })?;
         }
         Ok(())
@@ -68,12 +68,25 @@ impl Endpoints {
         Ok(self.receive_channel.recv_timeout(timeout)?)
     }
 
-    pub fn send(&self, data: Data) -> Result<()> {
+    pub fn receive_blocking(&self) -> Result<Message> {
+        Ok(self.receive_channel.recv()?)
+    }
+
+    pub fn send(&self, data: Event) -> Result<()> {
         Ok(self.send_channel.send(Message {
             source: self.source.clone(),
-            data,
+            event: data,
         })?)
     }
+
+    pub fn get_channels(&self) -> (Sender<Message>, Receiver<Message>) {
+        (self.send_channel.clone(), self.receive_channel.clone())
+    }
+
+    pub fn get_source(&self) -> String {
+        self.source.clone()
+    }
+
 }
 
 #[cfg(test)]
@@ -90,7 +103,7 @@ mod tests {
     #[test]
     fn send_all_multiple_pass() {
         let channels = setup();
-        let data_to_send = vec![Data::StopRunning, Data::StopRunning];
+        let data_to_send = vec![Event::StopRunning, Event::StopRunning];
 
         channels
             .send_all(data_to_send)
@@ -104,7 +117,7 @@ mod tests {
     #[test]
     fn try_receive_all_single_pass() {
         let channels = setup();
-        let data_to_send = Data::StopRunning;
+        let data_to_send = Event::StopRunning;
 
         channels
             .send(data_to_send)
@@ -118,7 +131,7 @@ mod tests {
     #[test]
     fn try_receive_all_multiple_pass() {
         let channels = setup();
-        let data_to_send = vec![Data::StopRunning, Data::StopRunning];
+        let data_to_send = vec![Event::StopRunning, Event::StopRunning];
 
         channels
             .send_all(data_to_send)
@@ -149,7 +162,7 @@ mod tests {
     fn receive_timeout_pass() {
         let channels = setup();
         channels
-            .send(Data::StopRunning)
+            .send(Event::StopRunning)
             .expect("Failed to send message");
 
         let result = channels.receive_timeout(Duration::from_secs(2));
@@ -161,7 +174,7 @@ mod tests {
     fn send_pass() {
         let channels = setup();
         channels
-            .send(Data::StopRunning)
+            .send(Event::StopRunning)
             .expect("Failed to send message");
 
         let result = channels
@@ -172,7 +185,7 @@ mod tests {
             result,
             Message {
                 source: channels.source,
-                data: Data::StopRunning
+                event: Event::StopRunning
             }
         );
     }

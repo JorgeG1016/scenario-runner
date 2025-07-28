@@ -1,5 +1,5 @@
 use crate::connection::Communicate;
-use crate::threads::itc::{Data, Endpoints, Message};
+use crate::threads::itc::{Event, Endpoints, Message};
 use chrono::Local;
 use log::{error, info, trace, warn};
 
@@ -11,15 +11,15 @@ pub fn thread(connection_handle: &mut Box<dyn Communicate + Send + 'static>, cha
     while alive {
         if let Ok(messages) = channels.try_receive_all() {
             for message in messages {
-                match message.data {
-                    Data::StartDataStream => data_stream_enabled = true,
-                    Data::StopDataStream => data_stream_enabled = false,
-                    Data::StopRunning => alive = false,
-                    Data::SendData { data } => {
+                match message.event {
+                    Event::StartDataStream => data_stream_enabled = true,
+                    Event::StopDataStream => data_stream_enabled = false,
+                    Event::StopRunning => alive = false,
+                    Event::SendData { data } => {
                         trace!("Sending data on connection");
                         if connection_handle.write(&data).is_err() {
                             error!("Failed to send bytes");
-                            let _ = channels.send(Data::SendError);
+                            let _ = channels.send(Event::SendError);
                         }
                     }
                     _ => {
@@ -35,7 +35,7 @@ pub fn thread(connection_handle: &mut Box<dyn Communicate + Send + 'static>, cha
                 let mut data = Vec::from(buf);
                 data.truncate(bytes_read - 1);
                 let data_length = data.len();
-                let _ = channels.send(Data::DataReceived {
+                let _ = channels.send(Event::DataReceived {
                     timestamp: Local::now(),
                     data,
                     data_length,
@@ -43,7 +43,7 @@ pub fn thread(connection_handle: &mut Box<dyn Communicate + Send + 'static>, cha
             }
         } else {
             error!("Failed to receive bytes");
-            let _ = channels.send(Data::ReceiveError);
+            let _ = channels.send(Event::ReceiveError);
         }
     }
     info!("Command Runner thread has stopped!");
@@ -178,7 +178,7 @@ mod tests {
 
         let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
         unit_channel
-            .send(Data::StopRunning)
+            .send(Event::StopRunning)
             .expect("Failed to send stop running message");
 
         assert!(handle.join().is_ok(), "Thread stopped with error thread")
@@ -195,15 +195,15 @@ mod tests {
 
         let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
         unit_channel
-            .send(Data::StartDataStream)
+            .send(Event::StartDataStream)
             .expect("Failed to send start data stream message");
 
         //Should receive something back way faster than 60 seconds
         let received_message = unit_channel
             .receive_timeout(Duration::from_secs(5))
             .expect("Somehow didn't receive anything back");
-        let received_data = match received_message.data {
-            Data::DataReceived { data, .. } => data,
+        let received_data = match received_message.event {
+            Event::DataReceived { data, .. } => data,
             _ => panic!("Received the wrong data"),
         };
         let received_string =
@@ -212,7 +212,7 @@ mod tests {
         //String from thread shouldn't contain the end character
         assert_eq!(received_string, read_string.trim_end_matches('\n'));
         unit_channel
-            .send(Data::StopRunning)
+            .send(Event::StopRunning)
             .expect("Failed to send stop running message");
         assert!(handle.join().is_ok(), "Thread stopped with error thread")
     }
@@ -228,12 +228,12 @@ mod tests {
 
         let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
         unit_channel
-            .send(Data::SendData {
+            .send(Event::SendData {
                 data: Vec::from("Hello World!"),
             })
             .expect("Failed to send send data message");
         unit_channel
-            .send(Data::StopRunning)
+            .send(Event::StopRunning)
             .expect("Failed to send stop running message");
 
         assert!(handle.join().is_ok(), "Thread stopped with error thread")
@@ -250,7 +250,7 @@ mod tests {
 
         let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
         unit_channel
-            .send(Data::StartDataStream)
+            .send(Event::StartDataStream)
             .expect("Failed to send start data stream message");
 
         //Should receive something back way faster than 60 seconds
@@ -259,13 +259,13 @@ mod tests {
             .expect("Somehow didn't receive anything back");
 
         //Don't really care about the data, just want to make sure we got something
-        match received_message.data {
-            Data::DataReceived { .. } => {}
+        match received_message.event {
+            Event::DataReceived { .. } => {}
             _ => panic!("Received the wrong data"),
         };
 
         unit_channel
-            .send(Data::StopDataStream)
+            .send(Event::StopDataStream)
             .expect("Failed to send stop data stream message");
         // Need to clear all messages previously sent and the last to be sent
         let _ = unit_channel.try_receive_all();
@@ -280,7 +280,7 @@ mod tests {
         );
 
         unit_channel
-            .send(Data::StopRunning)
+            .send(Event::StopRunning)
             .expect("Failed to send stop running message");
         assert!(handle.join().is_ok(), "Thread stopped with error thread")
     }
@@ -295,12 +295,12 @@ mod tests {
             .receive_timeout(Duration::from_secs(10))
             .expect("Did not receive anything from thread");
         assert!(
-            matches!(received_message.data, Data::ReceiveError),
+            matches!(received_message.event, Event::ReceiveError),
             "Unexpectedly received something else"
         );
 
         unit_channel
-            .send(Data::StopRunning)
+            .send(Event::StopRunning)
             .expect("Failed to send stop running message");
         assert!(handle.join().is_ok(), "Thread stopped with error thread")
     }
@@ -312,7 +312,7 @@ mod tests {
         let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
 
         unit_channel
-            .send(Data::SendData {
+            .send(Event::SendData {
                 data: Vec::from("Hello World!"),
             })
             .expect("Failed to send send data message");
@@ -321,12 +321,12 @@ mod tests {
             .receive_timeout(Duration::from_secs(10))
             .expect("Did not receive anything from thread");
         assert!(
-            matches!(received_message.data, Data::SendError),
+            matches!(received_message.event, Event::SendError),
             "Unexpectedly received something else"
         );
 
         unit_channel
-            .send(Data::StopRunning)
+            .send(Event::StopRunning)
             .expect("Failed to send stop running message");
         assert!(handle.join().is_ok(), "Thread stopped with error thread")
     }
@@ -342,10 +342,10 @@ mod tests {
 
         let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
         unit_channel
-            .send(Data::SendError)
+            .send(Event::SendError)
             .expect("Failed to send unhandled message");
         unit_channel
-            .send(Data::StopRunning)
+            .send(Event::StopRunning)
             .expect("Failed to send stop running message");
         assert!(handle.join().is_ok(), "Thread stopped with error thread")
     }

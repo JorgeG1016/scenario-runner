@@ -8,52 +8,51 @@ use crate::connection::Communicate;
 use crate::connection::tcp::Connection as TcpConnection;
 use crate::connection::usb::Connection as UsbConnection;
 use crate::interaction::config::{Config, ConnectionType};
-use crate::threads::itc::{Endpoints, Message};
+use crate::threads::itc::{Endpoints, Message, Event};
 use crate::threads::{handler, runner};
 
-struct Link {
-    controller_end: Endpoints,
-    thread_end: Endpoints,
-}
 
 struct Controller {
-    registry: HashMap<String, Link>,
-    inbox: Receiver<Message>,
-    outbox: Sender<Message>,
-    source: String,
+    registry: HashMap<String, Endpoints>,
+    mailbox: Endpoints
 }
 
 impl Controller {
     fn new(source: String) -> Self {
-        let (outbox, inbox) = channel::unbounded();
+        let (send_channel, receive_channel) = channel::unbounded();
+        let endpoint = Endpoints::new(source, send_channel, receive_channel);
+
         Controller {
             registry: HashMap::new(),
-            outbox,
-            inbox,
-            source,
+            mailbox: endpoint 
         }
     }
 
-    fn add_link(&mut self, thread_name: String) {
+    fn add_link(&mut self, thread_name: String) -> Endpoints{
         let (thread_tx, thread_rx) = channel::unbounded::<Message>();
-        let controller_end = Endpoints::new(self.source.clone(), thread_tx, self.inbox.clone());
-        let thread_end = Endpoints::new(thread_name.clone(), self.outbox.clone(), thread_rx);
-        //Not a big deal, but want to thread name at least, so no clone
+        let (controller_tx, controller_rx) = self.mailbox.get_channels();
+        let controller_end = Endpoints::new(self.mailbox.get_source(), thread_tx, controller_rx);
+        let thread_end = Endpoints::new(thread_name.clone(), controller_tx, thread_rx);
+        //Not a big deal, but want to drop thread name at least, so no clone
         self.registry.insert(
             thread_name,
-            Link {
-                controller_end,
-                thread_end,
-            },
+            controller_end,
         );
+        thread_end
     }
 
-    fn get_thread_endpoint(&self, thread_name: &String) -> Result<&Endpoints> {
-        match self.registry.get(thread_name) {
-            Some(value) => Ok(&value.thread_end),
-            None => bail!("No key with that value in registry"),
-        }
+    fn wait_on_inbox (&self) -> Result<Message> {
+        Ok(self.mailbox.receive_blocking()?)
     }
+
+    fn send_to_thread(&self, thread_name: String, data: Event) -> Result<()> {
+        match self.registry.get(&thread_name) {
+            Some(value) => value.send(data)?,
+            None => bail!("Thread does not exist in registry")
+        };
+        Ok(())
+    }
+
 }
 
 pub fn thread(config_file: String) -> Result<()> {
@@ -62,24 +61,17 @@ pub fn thread(config_file: String) -> Result<()> {
     info!("Connecting using specified configuration");
     let mut opened_connection = open_connection(current_config.connection)?;
 
-    //
-    let thread_ids: Vec<String> = vec![String::from("handler"), String::from("runner")];
+    let mut hub = Controller::new("controller".to_string());
+    let handler_endpoint = hub.add_link("handler".to_string());
+    let runner_endpoint = hub.add_link("runner".to_string());
 
-    // let (controller_send, controller_receive) = mpsc::channel();
-    // // handler thread is sort of the hub, needs to be connected to other threads
-    // let (handler_tx, handler_rx) = mpsc::channel();
-    // let (runner_tx, runner_rx) = mpsc::channel();
+    let handler_handle =
+        thread::spawn(move || handler::thread(current_config.scenarios, handler_endpoint));
+    let runner_handle =
+        thread::spawn(move || runner::thread(&mut opened_connection, runner_endpoint));
 
-    // let handler_channels = itc::Itc::new(handler_tx, runner_rx);
-    // let runner_channels = itc::Itc::new(runner_tx, handler_rx);
-
-    // let handler_handle =
-    //     thread::spawn(move || handler::thread(current_config.scenarios, handler_channels));
-    // let runner_handle =
-    //     thread::spawn(move || runner::thread(&mut opened_connection, runner_channels));
-
-    // let _ = handler_handle.join();
-    // let _ = runner_handle.join();
+    let _ = handler_handle.join();
+    let _ = runner_handle.join();
     Ok(())
 }
 
@@ -91,5 +83,11 @@ fn open_connection(
         ConnectionType::Usb { port, baud_rate } => {
             Ok(Box::new(UsbConnection::new(port, baud_rate)?))
         }
+    }
+}
+
+fn handle_message(hub: Controller) -> Result<()>{
+    loop {
+        let message = hub.wait_on_inbox()?;
     }
 }
