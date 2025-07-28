@@ -22,8 +22,8 @@ pub enum Data {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Message {
-    source: String,
-    data: Data,
+    pub source: String,
+    pub data: Data,
 }
 
 #[derive(Debug, Clone)]
