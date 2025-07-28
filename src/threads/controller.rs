@@ -8,13 +8,12 @@ use crate::connection::Communicate;
 use crate::connection::tcp::Connection as TcpConnection;
 use crate::connection::usb::Connection as UsbConnection;
 use crate::interaction::config::{Config, ConnectionType};
-use crate::threads::itc::{Endpoints, Message, Event};
+use crate::threads::itc::{Endpoints, Event, Message};
 use crate::threads::{handler, runner};
-
 
 struct Controller {
     registry: HashMap<String, Endpoints>,
-    mailbox: Endpoints
+    mailbox: Endpoints,
 }
 
 impl Controller {
@@ -24,35 +23,31 @@ impl Controller {
 
         Controller {
             registry: HashMap::new(),
-            mailbox: endpoint 
+            mailbox: endpoint,
         }
     }
 
-    fn add_link(&mut self, thread_name: String) -> Endpoints{
+    fn add_link(&mut self, thread_name: String) -> Endpoints {
         let (thread_tx, thread_rx) = channel::unbounded::<Message>();
         let (controller_tx, controller_rx) = self.mailbox.get_channels();
         let controller_end = Endpoints::new(self.mailbox.get_source(), thread_tx, controller_rx);
         let thread_end = Endpoints::new(thread_name.clone(), controller_tx, thread_rx);
         //Not a big deal, but want to drop thread name at least, so no clone
-        self.registry.insert(
-            thread_name,
-            controller_end,
-        );
+        self.registry.insert(thread_name, controller_end);
         thread_end
     }
 
-    fn wait_on_inbox (&self) -> Result<Message> {
+    fn wait_on_inbox(&self) -> Result<Message> {
         Ok(self.mailbox.receive_blocking()?)
     }
 
     fn send_to_thread(&self, thread_name: String, data: Event) -> Result<()> {
         match self.registry.get(&thread_name) {
             Some(value) => value.send(data)?,
-            None => bail!("Thread does not exist in registry")
+            None => bail!("Thread does not exist in registry"),
         };
         Ok(())
     }
-
 }
 
 pub fn thread(config_file: String) -> Result<()> {
@@ -86,8 +81,17 @@ fn open_connection(
     }
 }
 
-fn handle_message(hub: Controller) -> Result<()>{
+fn process_message(hub: Controller) -> Result<()> {
     loop {
         let message = hub.wait_on_inbox()?;
+        match message.origin.as_str() {
+            "handler" => {}
+            "runner" => {}
+            _ => {}
+        };
     }
+}
+
+fn process_handler_message(endpoints: &Endpoints, event: Event) {
+    match event {}
 }

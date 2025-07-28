@@ -5,8 +5,6 @@ use std::time::Duration;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Event {
-    StartDataStream,
-    StopDataStream,
     SendData {
         data: Vec<u8>,
     },
@@ -22,7 +20,8 @@ pub enum Event {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Message {
-    pub source: String,
+    pub origin: String,
+    pub destination: String,
     pub event: Event,
 }
 
@@ -46,11 +45,12 @@ impl Endpoints {
         }
     }
 
-    pub fn send_all(&self, data_to_send: Vec<Event>) -> Result<()> {
+    pub fn send_all(&self, data_to_send: Vec<Event>, destination: String) -> Result<()> {
         for data in data_to_send {
             self.send_channel.send(Message {
-                source: self.source.clone(),
+                origin: self.source.clone(),
                 event: data,
+                destination: destination.clone(),
             })?;
         }
         Ok(())
@@ -72,10 +72,11 @@ impl Endpoints {
         Ok(self.receive_channel.recv()?)
     }
 
-    pub fn send(&self, data: Event) -> Result<()> {
+    pub fn send(&self, data: Event, destination: String) -> Result<()> {
         Ok(self.send_channel.send(Message {
-            source: self.source.clone(),
+            origin: self.source.clone(),
             event: data,
+            destination,
         })?)
     }
 
@@ -86,7 +87,6 @@ impl Endpoints {
     pub fn get_source(&self) -> String {
         self.source.clone()
     }
-
 }
 
 #[cfg(test)]
@@ -106,7 +106,7 @@ mod tests {
         let data_to_send = vec![Event::StopRunning, Event::StopRunning];
 
         channels
-            .send_all(data_to_send)
+            .send_all(data_to_send, "unit".to_string())
             .expect("Failed to send multiple messages");
         let messages = channels
             .try_receive_all()
@@ -120,7 +120,7 @@ mod tests {
         let data_to_send = Event::StopRunning;
 
         channels
-            .send(data_to_send)
+            .send(data_to_send, "unit".to_string())
             .expect("Failed to send single message");
         let message = channels
             .try_receive_all()
@@ -134,7 +134,7 @@ mod tests {
         let data_to_send = vec![Event::StopRunning, Event::StopRunning];
 
         channels
-            .send_all(data_to_send)
+            .send_all(data_to_send, "unit".to_string())
             .expect("Failed to send multiple messages");
         let messages = channels
             .try_receive_all()
@@ -162,7 +162,7 @@ mod tests {
     fn receive_timeout_pass() {
         let channels = setup();
         channels
-            .send(Event::StopRunning)
+            .send(Event::StopRunning, "unit".to_string())
             .expect("Failed to send message");
 
         let result = channels.receive_timeout(Duration::from_secs(2));
@@ -174,7 +174,7 @@ mod tests {
     fn send_pass() {
         let channels = setup();
         channels
-            .send(Event::StopRunning)
+            .send(Event::StopRunning, "unit".to_string())
             .expect("Failed to send message");
 
         let result = channels
@@ -184,8 +184,9 @@ mod tests {
         assert_eq!(
             result,
             Message {
-                source: channels.source,
-                event: Event::StopRunning
+                origin: channels.source,
+                event: Event::StopRunning,
+                destination: "unit".to_string()
             }
         );
     }

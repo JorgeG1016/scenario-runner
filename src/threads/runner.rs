@@ -1,19 +1,16 @@
 use crate::connection::Communicate;
-use crate::threads::itc::{Event, Endpoints, Message};
+use crate::threads::itc::{Endpoints, Event, Message};
 use chrono::Local;
 use log::{error, info, trace, warn};
 
 pub fn thread(connection_handle: &mut Box<dyn Communicate + Send + 'static>, channels: Endpoints) {
     info!("Starting Command Runner Thread!");
 
-    let mut data_stream_enabled = false;
     let mut alive = true;
     while alive {
         if let Ok(messages) = channels.try_receive_all() {
             for message in messages {
                 match message.event {
-                    Event::StartDataStream => data_stream_enabled = true,
-                    Event::StopDataStream => data_stream_enabled = false,
                     Event::StopRunning => alive = false,
                     Event::SendData { data } => {
                         trace!("Sending data on connection");
@@ -31,16 +28,14 @@ pub fn thread(connection_handle: &mut Box<dyn Communicate + Send + 'static>, cha
 
         let mut buf: [u8; 256] = [0; 256];
         if let Ok(bytes_read) = connection_handle.read_until(&mut buf, b'\n') {
-            if data_stream_enabled {
-                let mut data = Vec::from(buf);
-                data.truncate(bytes_read - 1);
-                let data_length = data.len();
-                let _ = channels.send(Event::DataReceived {
-                    timestamp: Local::now(),
-                    data,
-                    data_length,
-                });
-            }
+            let mut data = Vec::from(buf);
+            data.truncate(bytes_read - 1);
+            let data_length = data.len();
+            let _ = channels.send(Event::DataReceived {
+                timestamp: Local::now(),
+                data,
+                data_length,
+            });
         } else {
             error!("Failed to receive bytes");
             let _ = channels.send(Event::ReceiveError);
