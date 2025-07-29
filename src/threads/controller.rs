@@ -27,6 +27,15 @@ pub enum Message {
     StopRunning,
     SendError,
     ReceiveError,
+    HandlerReceivedData {
+        timestamp: DateTime<Local>,
+        data: Vec<u8>,
+        data_length: usize
+    },
+    HandlerSendData {
+        data: Vec<u8>
+    }
+
 }
 
 #[derive(Debug, Clone)]
@@ -81,7 +90,6 @@ impl Endpoints {
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Identifier {
-    Controller,
     Handler,
     Runner
 }
