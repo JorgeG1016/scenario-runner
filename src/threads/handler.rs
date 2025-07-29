@@ -1,5 +1,5 @@
 use crate::interaction::command::{self, Sendable, parse_scenario};
-use crate::threads::itc::{Event, Endpoints, Message};
+use crate::threads::controller::{Endpoints, Message};
 use log::{debug, error, info, trace, warn};
 use std::path::PathBuf;
 use std::thread;
@@ -36,7 +36,7 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Endpoints) {
                         Sendable::Text { data } => data,
                     };
                     thread::sleep(delay);
-                    let start_sequence = vec![Event::SendData { data }, Event::StartDataStream];
+                    let start_sequence = vec![Message::SendData { data }, Message::StartDataStream];
                     trace!("Sending command {} in scenario {}", cnt, scenario.display());
                     if runner_channels.send_all(start_sequence).is_err() {
                         warn!(
@@ -61,8 +61,8 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Endpoints) {
 
                         if let Ok(message) = runner_channels.receive_timeout(remaining_time) {
                             if !expect_prefix.is_empty() {
-                                match message.event {
-                                    Event::DataReceived { data, .. } => {
+                                match message {
+                                    Message::DataReceived { data, .. } => {
                                         if data.starts_with(&expect_prefix) {
                                             if data == expect_exact {
                                                 trace!("Found exact response");
@@ -80,7 +80,7 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Endpoints) {
                                             }
                                         }
                                     }
-                                    Event::SendError | Event::ReceiveError => {
+                                    Message::SendError | Message::ReceiveError => {
                                         error!(
                                             "Something went wrong with the connection, shutting down program"
                                         );
@@ -97,7 +97,7 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Endpoints) {
             };
         }
     }
-    let _ = runner_channels.send(Event::StopRunning);
+    let _ = runner_channels.send(Message::StopRunning);
     info!("Stopping Scenario Handler Thread!");
 }
 
@@ -112,8 +112,8 @@ mod tests {
         let (test_tx, test_rx) = channel::unbounded();
         let (thread_tx, thread_rx) = channel::unbounded();
         (
-            Endpoints::new("unit".to_string(), test_tx, thread_rx),
-            Endpoints::new("unit".to_string(), thread_tx, test_rx),
+            Endpoints::new(test_tx, thread_rx),
+            Endpoints::new(thread_tx, test_rx),
         )
     }
 
@@ -127,7 +127,7 @@ mod tests {
             .expect("Should've received a runner stop message");
 
         assert!(
-            matches!(received_message.event, Event::StopRunning),
+            matches!(received_message, Message::StopRunning),
             "Unexpectedly received something else"
         );
         assert!(handle.join().is_ok(), "Thread joined with fail")
@@ -143,7 +143,7 @@ mod tests {
             .expect("Should've received a runner stop message");
 
         assert!(
-            matches!(received_message.event, Event::StopRunning),
+            matches!(received_message, Message::StopRunning),
             "Unexpectedly received something else"
         );
         assert!(handle.join().is_ok(), "Thread joined with fail")
@@ -181,7 +181,7 @@ mod tests {
             .expect("Should've received a runner stop message");
 
         assert!(
-            matches!(received_message.event, Event::StopRunning),
+            matches!(received_message, Message::StopRunning),
             "Unexpectedly received something else"
         );
         assert!(handle.join().is_ok(), "Thread joined with fail")
