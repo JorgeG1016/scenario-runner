@@ -1,11 +1,11 @@
 use crate::interaction::command::{self, Sendable, parse_scenario};
-use crate::threads::controller::{Endpoints, Message};
+use crate::threads::controller::{Message, ThreadManager};
 use log::{debug, error, info, trace, warn};
 use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Endpoints) {
+pub fn thread(scenarios: Vec<PathBuf>, manager: ThreadManager) {
     info!("Starting Scenario Handler Thread!");
     'scenario_loop: for scenario in scenarios {
         if !scenario.is_file() {
@@ -36,9 +36,10 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Endpoints) {
                         Sendable::Text { data } => data,
                     };
                     thread::sleep(delay);
-                    let start_sequence = vec![Message::SendData { data }, Message::StartDataStream];
+                    let start_sequence =
+                        vec![Message::RunnerSendData { data }, Message::StopRunnerStream];
                     trace!("Sending command {} in scenario {}", cnt, scenario.display());
-                    if runner_channels.send_all(start_sequence).is_err() {
+                    if manager.send_all(start_sequence).is_err() {
                         warn!(
                             "Command {} in {} could not be sent, skipping",
                             cnt,
@@ -59,10 +60,10 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Endpoints) {
                             break;
                         }
 
-                        if let Ok(message) = runner_channels.receive_timeout(remaining_time) {
+                        if let Ok(message) = manager.receive_timeout(remaining_time) {
                             if !expect_prefix.is_empty() {
                                 match message {
-                                    Message::DataReceived { data, .. } => {
+                                    Message::RunnerReceivedData { data, .. } => {
                                         if data.starts_with(&expect_prefix) {
                                             if data == expect_exact {
                                                 trace!("Found exact response");
@@ -97,7 +98,7 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Endpoints) {
             };
         }
     }
-    let _ = runner_channels.send(Message::StopRunning);
+    let _ = manager.send(Message::StopRunning);
     info!("Stopping Scenario Handler Thread!");
 }
 
@@ -108,12 +109,12 @@ mod tests {
     use std::{io::Write, path::PathBuf, vec};
     use tempfile::NamedTempFile;
 
-    fn setup() -> (Endpoints, Endpoints) {
+    fn setup() -> (ThreadManager, ThreadManager) {
         let (test_tx, test_rx) = channel::unbounded();
         let (thread_tx, thread_rx) = channel::unbounded();
         (
-            Endpoints::new(test_tx, thread_rx),
-            Endpoints::new(thread_tx, test_rx),
+            ThreadManager::new(test_tx, thread_rx),
+            ThreadManager::new(thread_tx, test_rx),
         )
     }
 

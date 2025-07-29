@@ -1,9 +1,9 @@
 use anyhow::{Result, bail};
+use chrono::{DateTime, Local};
 use crossbeam::channel::{self, Receiver, Sender};
 use log::info;
 use std::collections::HashMap;
 use std::thread;
-use chrono::{DateTime, Local};
 use std::time::Duration;
 
 use crate::connection::Communicate;
@@ -12,46 +12,37 @@ use crate::connection::usb::Connection as UsbConnection;
 use crate::interaction::config::{Config, ConnectionType};
 use crate::threads::{handler, runner};
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Message {
-    StartDataStream,
-    StopDataStream,
-    SendData {
-        data: Vec<u8>,
-    },
-    DataReceived {
+    StopRunning,
+    SendError,
+    ReceiveError,
+    RunnerReceivedData {
         timestamp: DateTime<Local>,
         data: Vec<u8>,
         data_length: usize,
     },
-    StopRunning,
-    SendError,
-    ReceiveError,
-    HandlerReceivedData {
-        timestamp: DateTime<Local>,
+    RunnerSendData {
         data: Vec<u8>,
-        data_length: usize
     },
-    HandlerSendData {
-        data: Vec<u8>
-    }
-
+    StartRunnerStream,
+    StopRunnerStream,
 }
 
 #[derive(Debug, Clone)]
-pub struct Endpoints {
+pub struct ThreadManager {
     send_channel: Sender<Message>,
     receive_channel: Receiver<Message>,
+    is_stream_enabled: bool,
 }
 
-impl Endpoints {
-    pub fn new(
-        send_channel: Sender<Message>,
-        receive_channel: Receiver<Message>,
-    ) -> Self {
+impl ThreadManager {
+    pub fn new(send_channel: Sender<Message>, receive_channel: Receiver<Message>) -> Self {
         Self {
             send_channel,
             receive_channel,
+            is_stream_enabled: false,
         }
     }
 
@@ -85,23 +76,30 @@ impl Endpoints {
     pub fn get_channels(&self) -> (Sender<Message>, Receiver<Message>) {
         (self.send_channel.clone(), self.receive_channel.clone())
     }
-}
 
+    pub fn enable_stream(&mut self) {
+        self.is_stream_enabled = true;
+    }
+
+    pub fn disable_stream(&mut self) {
+        self.is_stream_enabled = false;
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
 pub enum Identifier {
     Handler,
-    Runner
+    Runner,
 }
 struct Controller {
-    registry: HashMap<Identifier, Endpoints>,
-    mailbox: Endpoints,
+    registry: HashMap<Identifier, ThreadManager>,
+    mailbox: ThreadManager,
 }
 
 impl Controller {
     fn new() -> Self {
         let (send_channel, receive_channel) = channel::unbounded();
-        let endpoint = Endpoints::new(send_channel, receive_channel);
+        let endpoint = ThreadManager::new(send_channel, receive_channel);
 
         Controller {
             registry: HashMap::new(),
@@ -109,18 +107,18 @@ impl Controller {
         }
     }
 
-    fn add_link(&mut self, identifier: Identifier) -> Endpoints {
+    fn add_link(&mut self, identifier: Identifier) -> ThreadManager {
         let (thread_tx, thread_rx) = channel::unbounded::<Message>();
         let (controller_tx, controller_rx) = self.mailbox.get_channels();
-        let controller_end = Endpoints::new(thread_tx, controller_rx);
-        let thread_end = Endpoints::new(controller_tx, thread_rx);
+        let controller_end = ThreadManager::new(thread_tx, controller_rx);
+        let thread_end = ThreadManager::new(controller_tx, thread_rx);
         //Not a big deal, but want to drop thread name at least, so no clone
         self.registry.insert(identifier, controller_end);
         thread_end
     }
 
     fn wait_on_inbox(&self) -> Result<Message> {
-        Ok(self.mailbox.receive_blocking()?)
+        self.mailbox.receive_blocking()
     }
 
     fn send_to_thread(&self, identifier: Identifier, message: Message) -> Result<()> {
@@ -129,6 +127,13 @@ impl Controller {
             None => bail!("Thread does not exist in registry"),
         };
         Ok(())
+    }
+
+    fn get_thread_manager(&mut self, identifier: Identifier) -> Result<&mut ThreadManager> {
+        match self.registry.get_mut(&identifier) {
+            Some(value) => Ok(value),
+            None => bail!("Thread does not exist in registry"),
+        }
     }
 }
 
@@ -147,6 +152,12 @@ pub fn thread(config_file: String) -> Result<()> {
     let runner_handle =
         thread::spawn(move || runner::thread(&mut opened_connection, runner_endpoint));
 
+    // Threads should be stopped if Ok is returned, but just in case
+    let _ = match process_messages(&mut hub) {
+        Ok(..) => stop_all_threads(&mut hub),
+        Err(..) => stop_all_threads(&mut hub),
+    };
+
     let _ = handler_handle.join();
     let _ = runner_handle.join();
     Ok(())
@@ -163,20 +174,39 @@ fn open_connection(
     }
 }
 
-// fn process_message(hub: Controller) -> Result<()> {
-//     loop {
-//         let message = hub.wait_on_inbox()?;
-//         match message.origin.as_str() {
-//             "handler" => {}
-//             "runner" => {}
-//             _ => {}
-//         };
-//     }
-// }
+fn stop_all_threads(hub: &mut Controller) -> Result<()> {
+    let _ = hub.send_to_thread(Identifier::Handler, Message::StopRunning);
+    let _ = hub.send_to_thread(Identifier::Runner, Message::StopRunning);
+    Ok(())
+}
 
-// fn process_handler_message(endpoints: &Endpoints, event: Event) {
-//     match event {}
-// }
+fn process_messages(hub: &mut Controller) -> Result<()> {
+    loop {
+        let message = hub.wait_on_inbox()?;
+        match message {
+            Message::SendError | Message::ReceiveError | Message::StopRunning => {
+                stop_all_threads(hub)?;
+                break;
+            }
+            Message::StartRunnerStream => {
+                let manager = hub.get_thread_manager(Identifier::Runner)?;
+                manager.enable_stream();
+            }
+            Message::StopRunnerStream => {
+                let manager = hub.get_thread_manager(Identifier::Runner)?;
+                manager.disable_stream();
+            }
+            Message::RunnerSendData { .. } => {
+                hub.send_to_thread(Identifier::Runner, message)?;
+            }
+            Message::RunnerReceivedData { .. } => {
+                hub.send_to_thread(Identifier::Handler, message)?;
+                todo!("Need to add logging here");
+            }
+        }
+    }
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
@@ -184,9 +214,9 @@ mod tests {
     use crossbeam::channel;
     use pretty_assertions::assert_eq;
 
-    fn setup() -> Endpoints {
+    fn setup() -> ThreadManager {
         let (tx, rx) = channel::unbounded();
-        Endpoints::new( tx, rx)
+        ThreadManager::new(tx, rx)
     }
 
     #[test]
@@ -270,9 +300,6 @@ mod tests {
             .receive_timeout(Duration::from_secs(2))
             .expect("Failed to receive message");
 
-        assert_eq!(
-            result,
-            Message::StopRunning
-        );
+        assert_eq!(result, Message::StopRunning);
     }
 }

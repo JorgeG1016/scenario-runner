@@ -1,22 +1,24 @@
 use crate::connection::Communicate;
-use crate::threads::controller::{Endpoints, Message};
+use crate::threads::controller::{Message, ThreadManager};
 use chrono::Local;
 use log::{error, info, trace, warn};
 
-pub fn thread(connection_handle: &mut Box<dyn Communicate + Send + 'static>, channels: Endpoints) {
+pub fn thread(
+    connection_handle: &mut Box<dyn Communicate + Send + 'static>,
+    manager: ThreadManager,
+) {
     info!("Starting Command Runner Thread!");
 
-    let mut alive = true;
-    while alive {
-        if let Ok(messages) = channels.try_receive_all() {
+    'main: loop {
+        if let Ok(messages) = manager.try_receive_all() {
             for message in messages {
                 match message {
-                    Message::StopRunning => alive = false,
-                    Message::SendData { data } => {
+                    Message::StopRunning => break 'main,
+                    Message::RunnerSendData { data } => {
                         trace!("Sending data on connection");
                         if connection_handle.write(&data).is_err() {
                             error!("Failed to send bytes");
-                            let _ = channels.send(Message::SendError);
+                            let _ = manager.send(Message::SendError);
                         }
                     }
                     _ => {
@@ -31,14 +33,14 @@ pub fn thread(connection_handle: &mut Box<dyn Communicate + Send + 'static>, cha
             let mut data = Vec::from(buf);
             data.truncate(bytes_read - 1);
             let data_length = data.len();
-            let _ = channels.send(Message::DataReceived {
+            let _ = manager.send(Message::RunnerReceivedData {
                 timestamp: Local::now(),
                 data,
                 data_length,
             });
         } else {
             error!("Failed to receive bytes");
-            let _ = channels.send(Message::ReceiveError);
+            let _ = manager.send(Message::ReceiveError);
         }
     }
     info!("Command Runner thread has stopped!");
@@ -63,7 +65,7 @@ mod tests {
     struct FailedReadMockConnection;
     struct FailedWriteMockConnection {
         message_read: Vec<u8>,
-        read_index: usize
+        read_index: usize,
     }
 
     impl Read for MockConnection {
@@ -138,7 +140,7 @@ mod tests {
 
     impl Communicate for FailedWriteMockConnection {}
 
-    fn setup() -> (MockConnection, Endpoints, Endpoints) {
+    fn setup() -> (MockConnection, ThreadManager, ThreadManager) {
         let (test_tx, test_rx) = channel::unbounded();
         let (thread_tx, thread_rx) = channel::unbounded();
         (
@@ -147,31 +149,31 @@ mod tests {
                 message_written: Vec::new(),
                 read_index: 0,
             },
-            Endpoints::new(test_tx, thread_rx),
-            Endpoints::new(thread_tx, test_rx),
+            ThreadManager::new(test_tx, thread_rx),
+            ThreadManager::new(thread_tx, test_rx),
         )
     }
 
-    fn fail_read_setup() -> (FailedReadMockConnection, Endpoints, Endpoints) {
+    fn fail_read_setup() -> (FailedReadMockConnection, ThreadManager, ThreadManager) {
         let (test_tx, test_rx) = channel::unbounded();
         let (thread_tx, thread_rx) = channel::unbounded();
         (
             FailedReadMockConnection,
-            Endpoints::new(test_tx, thread_rx),
-            Endpoints::new(thread_tx, test_rx),
+            ThreadManager::new(test_tx, thread_rx),
+            ThreadManager::new(thread_tx, test_rx),
         )
     }
 
-    fn fail_write_setup() -> (FailedWriteMockConnection, Endpoints, Endpoints) {
+    fn fail_write_setup() -> (FailedWriteMockConnection, ThreadManager, ThreadManager) {
         let (test_tx, test_rx) = channel::unbounded();
         let (thread_tx, thread_rx) = channel::unbounded();
         (
             FailedWriteMockConnection {
                 message_read: Vec::new(),
-                read_index: 0
+                read_index: 0,
             },
-            Endpoints::new(test_tx, thread_rx),
-            Endpoints::new(thread_tx, test_rx),
+            ThreadManager::new(test_tx, thread_rx),
+            ThreadManager::new(thread_tx, test_rx),
         )
     }
 
@@ -208,7 +210,7 @@ mod tests {
             .receive_timeout(Duration::from_secs(5))
             .expect("Somehow didn't receive anything back");
         let received_data = match received_message {
-            Message::DataReceived { data, .. } => data,
+            Message::RunnerReceivedData { data, .. } => data,
             _ => panic!("Received the wrong data"),
         };
         let received_string =
@@ -233,7 +235,7 @@ mod tests {
 
         let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
         unit_channel
-            .send(Message::SendData {
+            .send(Message::RunnerSendData {
                 data: Vec::from("Hello World!"),
             })
             .expect("Failed to send send data message");
@@ -275,7 +277,7 @@ mod tests {
         let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
 
         unit_channel
-            .send(Message::SendData {
+            .send(Message::RunnerSendData {
                 data: Vec::from("Hello World!"),
             })
             .expect("Failed to send send data message");
