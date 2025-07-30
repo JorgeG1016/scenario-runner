@@ -1,11 +1,11 @@
-use super::itc::{Itc, Message};
 use crate::interaction::command::{self, Sendable, parse_scenario};
+use crate::threads::controller::{ItcManager, Message};
 use log::{debug, error, info, trace, warn};
 use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Itc) {
+pub fn thread(scenarios: Vec<PathBuf>, manager: ItcManager) {
     info!("Starting Scenario Handler Thread!");
     'scenario_loop: for scenario in scenarios {
         if !scenario.is_file() {
@@ -36,9 +36,10 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Itc) {
                         Sendable::Text { data } => data,
                     };
                     thread::sleep(delay);
-                    let start_sequence = vec![Message::SendData { data }, Message::StartDataStream];
+                    let start_sequence =
+                        vec![Message::RunnerSendData { data }, Message::StopRunnerStream];
                     trace!("Sending command {} in scenario {}", cnt, scenario.display());
-                    if runner_channels.send_all(start_sequence).is_err() {
+                    if manager.send_all(start_sequence).is_err() {
                         warn!(
                             "Command {} in {} could not be sent, skipping",
                             cnt,
@@ -59,10 +60,10 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Itc) {
                             break;
                         }
 
-                        if let Ok(message) = runner_channels.receive_timeout(remaining_time) {
+                        if let Ok(message) = manager.receive_timeout(remaining_time) {
                             if !expect_prefix.is_empty() {
                                 match message {
-                                    Message::DataReceived { data, .. } => {
+                                    Message::RunnerReceivedData { data, .. } => {
                                         if data.starts_with(&expect_prefix) {
                                             if data == expect_exact {
                                                 trace!("Found exact response");
@@ -97,20 +98,24 @@ pub fn thread(scenarios: Vec<PathBuf>, runner_channels: Itc) {
             };
         }
     }
-    let _ = runner_channels.send(Message::StopRunning);
+    let _ = manager.send(Message::StopRunning);
     info!("Stopping Scenario Handler Thread!");
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{io::Write, path::PathBuf, sync::mpsc::channel, vec};
+    use crossbeam::channel;
+    use std::{io::Write, path::PathBuf, vec};
     use tempfile::NamedTempFile;
 
-    fn setup() -> (Itc, Itc) {
-        let (test_tx, test_rx) = channel();
-        let (thread_tx, thread_rx) = channel();
-        (Itc::new(test_tx, thread_rx), Itc::new(thread_tx, test_rx))
+    fn setup() -> (ItcManager, ItcManager) {
+        let (test_tx, test_rx) = channel::unbounded();
+        let (thread_tx, thread_rx) = channel::unbounded();
+        (
+            ItcManager::new(test_tx, thread_rx),
+            ItcManager::new(thread_tx, test_rx),
+        )
     }
 
     #[test]
