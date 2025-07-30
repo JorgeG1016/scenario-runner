@@ -1,11 +1,11 @@
 use crate::connection::Communicate;
-use crate::threads::controller::{Message, ThreadManager};
+use crate::threads::controller::{Message, ItcManager};
 use chrono::Local;
 use log::{error, info, trace, warn};
 
 pub fn thread(
     connection_handle: &mut Box<dyn Communicate + Send + 'static>,
-    manager: ThreadManager,
+    manager: ItcManager,
 ) {
     info!("Starting Command Runner Thread!");
 
@@ -140,7 +140,7 @@ mod tests {
 
     impl Communicate for FailedWriteMockConnection {}
 
-    fn setup() -> (MockConnection, ThreadManager, ThreadManager) {
+    fn setup() -> (MockConnection, ItcManager, ItcManager) {
         let (test_tx, test_rx) = channel::unbounded();
         let (thread_tx, thread_rx) = channel::unbounded();
         (
@@ -149,22 +149,22 @@ mod tests {
                 message_written: Vec::new(),
                 read_index: 0,
             },
-            ThreadManager::new(test_tx, thread_rx),
-            ThreadManager::new(thread_tx, test_rx),
+            ItcManager::new(test_tx, thread_rx),
+            ItcManager::new(thread_tx, test_rx),
         )
     }
 
-    fn fail_read_setup() -> (FailedReadMockConnection, ThreadManager, ThreadManager) {
+    fn fail_read_setup() -> (FailedReadMockConnection, ItcManager, ItcManager) {
         let (test_tx, test_rx) = channel::unbounded();
         let (thread_tx, thread_rx) = channel::unbounded();
         (
             FailedReadMockConnection,
-            ThreadManager::new(test_tx, thread_rx),
-            ThreadManager::new(thread_tx, test_rx),
+            ItcManager::new(test_tx, thread_rx),
+            ItcManager::new(thread_tx, test_rx),
         )
     }
 
-    fn fail_write_setup() -> (FailedWriteMockConnection, ThreadManager, ThreadManager) {
+    fn fail_write_setup() -> (FailedWriteMockConnection, ItcManager, ItcManager) {
         let (test_tx, test_rx) = channel::unbounded();
         let (thread_tx, thread_rx) = channel::unbounded();
         (
@@ -172,8 +172,8 @@ mod tests {
                 message_read: Vec::new(),
                 read_index: 0,
             },
-            ThreadManager::new(test_tx, thread_rx),
-            ThreadManager::new(thread_tx, test_rx),
+            ItcManager::new(test_tx, thread_rx),
+            ItcManager::new(thread_tx, test_rx),
         )
     }
 

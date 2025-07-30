@@ -31,13 +31,13 @@ pub enum Message {
 }
 
 #[derive(Debug, Clone)]
-pub struct ThreadManager {
+pub struct ItcManager {
     send_channel: Sender<Message>,
     receive_channel: Receiver<Message>,
     is_stream_enabled: bool,
 }
 
-impl ThreadManager {
+impl ItcManager {
     pub fn new(send_channel: Sender<Message>, receive_channel: Receiver<Message>) -> Self {
         Self {
             send_channel,
@@ -92,14 +92,14 @@ pub enum Identifier {
     Runner,
 }
 struct Controller {
-    registry: HashMap<Identifier, ThreadManager>,
-    mailbox: ThreadManager,
+    registry: HashMap<Identifier, ItcManager>,
+    mailbox: ItcManager,
 }
 
 impl Controller {
     fn new() -> Self {
         let (send_channel, receive_channel) = channel::unbounded();
-        let endpoint = ThreadManager::new(send_channel, receive_channel);
+        let endpoint = ItcManager::new(send_channel, receive_channel);
 
         Controller {
             registry: HashMap::new(),
@@ -107,11 +107,11 @@ impl Controller {
         }
     }
 
-    fn add_link(&mut self, identifier: Identifier) -> ThreadManager {
+    fn add_link(&mut self, identifier: Identifier) -> ItcManager {
         let (thread_tx, thread_rx) = channel::unbounded::<Message>();
         let (controller_tx, controller_rx) = self.mailbox.get_channels();
-        let controller_end = ThreadManager::new(thread_tx, controller_rx);
-        let thread_end = ThreadManager::new(controller_tx, thread_rx);
+        let controller_end = ItcManager::new(thread_tx, controller_rx);
+        let thread_end = ItcManager::new(controller_tx, thread_rx);
         //Not a big deal, but want to drop thread name at least, so no clone
         self.registry.insert(identifier, controller_end);
         thread_end
@@ -129,7 +129,7 @@ impl Controller {
         Ok(())
     }
 
-    fn get_thread_manager(&mut self, identifier: Identifier) -> Result<&mut ThreadManager> {
+    fn get_thread_manager(&mut self, identifier: Identifier) -> Result<&mut ItcManager> {
         match self.registry.get_mut(&identifier) {
             Some(value) => Ok(value),
             None => bail!("Thread does not exist in registry"),
@@ -214,9 +214,9 @@ mod tests {
     use crossbeam::channel;
     use pretty_assertions::assert_eq;
 
-    fn setup() -> ThreadManager {
+    fn setup() -> ItcManager {
         let (tx, rx) = channel::unbounded();
-        ThreadManager::new(tx, rx)
+        ItcManager::new(tx, rx)
     }
 
     #[test]

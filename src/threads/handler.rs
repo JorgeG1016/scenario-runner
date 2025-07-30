@@ -1,11 +1,11 @@
 use crate::interaction::command::{self, Sendable, parse_scenario};
-use crate::threads::controller::{Message, ThreadManager};
+use crate::threads::controller::{Message, ItcManager};
 use log::{debug, error, info, trace, warn};
 use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub fn thread(scenarios: Vec<PathBuf>, manager: ThreadManager) {
+pub fn thread(scenarios: Vec<PathBuf>, manager: ItcManager) {
     info!("Starting Scenario Handler Thread!");
     'scenario_loop: for scenario in scenarios {
         if !scenario.is_file() {
@@ -109,12 +109,12 @@ mod tests {
     use std::{io::Write, path::PathBuf, vec};
     use tempfile::NamedTempFile;
 
-    fn setup() -> (ThreadManager, ThreadManager) {
+    fn setup() -> (ItcManager, ItcManager) {
         let (test_tx, test_rx) = channel::unbounded();
         let (thread_tx, thread_rx) = channel::unbounded();
         (
-            ThreadManager::new(test_tx, thread_rx),
-            ThreadManager::new(thread_tx, test_rx),
+            ItcManager::new(test_tx, thread_rx),
+            ItcManager::new(thread_tx, test_rx),
         )
     }
 
