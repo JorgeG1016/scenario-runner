@@ -84,6 +84,10 @@ impl ItcManager {
     pub fn disable_stream(&mut self) {
         self.is_stream_enabled = false;
     }
+
+    pub fn get_stream_state(&self) -> bool {
+        self.is_stream_enabled
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Hash, Eq)]
@@ -200,7 +204,10 @@ fn process_messages(hub: &mut Controller) -> Result<()> {
                 hub.send_to_thread(Identifier::Runner, message)?;
             }
             Message::RunnerReceivedData { .. } => {
-                hub.send_to_thread(Identifier::Handler, message)?;
+                let manager = hub.get_thread_manager(Identifier::Runner)?;
+                if manager.get_stream_state() {
+                    hub.send_to_thread(Identifier::Handler, message)?;
+                }
                 todo!("Need to add logging here");
             }
         }
@@ -210,96 +217,156 @@ fn process_messages(hub: &mut Controller) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crossbeam::channel;
-    use pretty_assertions::assert_eq;
 
-    fn setup() -> ItcManager {
-        let (tx, rx) = channel::unbounded();
-        ItcManager::new(tx, rx)
+    mod itc_manager_tests {
+       
+        use super::super::*;
+        use crossbeam::channel;
+        use pretty_assertions::assert_eq;
+
+
+        fn setup() -> ItcManager {
+            let (tx, rx) = channel::unbounded();
+            ItcManager::new(tx, rx)
+        }
+
+        #[test]
+        fn send_all_single_pass() {
+            let manager = setup();
+            let message = vec![Message::StopRunning];
+            manager.send_all(message).expect("Failed to send single message");
+            let messages = manager.try_receive_all().expect("Failed to receive single message");
+
+            assert_eq!(messages.len(), 1);
+        }
+        #[test]
+        fn send_all_multiple_pass() {
+            let channels = setup();
+            let messages = vec![Message::StopRunning, Message::StopRunning];
+
+            channels
+                .send_all(messages)
+                .expect("Failed to send multiple messages");
+            let messages = channels
+                .try_receive_all()
+                .expect("Failed to receive multiple messages");
+            assert_eq!(messages.len(), 2);
+        }
+
+        #[test]
+        fn try_receive_all_single_pass() {
+            let channels = setup();
+            let messages = Message::StopRunning;
+
+            channels
+                .send(messages)
+                .expect("Failed to send single message");
+            let message = channels
+                .try_receive_all()
+                .expect("Failed to receive single message");
+            assert_eq!(message.len(), 1);
+        }
+
+        #[test]
+        fn try_receive_all_multiple_pass() {
+            let channels = setup();
+            let messages = vec![Message::StopRunning, Message::StopRunning];
+
+            channels
+                .send_all(messages)
+                .expect("Failed to send multiple messages");
+            let messages = channels
+                .try_receive_all()
+                .expect("Failed to receive multiple messages");
+            assert_eq!(messages.len(), 2);
+        }
+
+        #[test]
+        fn try_receive_all_nothing_pass() {
+            let channels = setup();
+            let result = channels.try_receive_all();
+
+            assert!(result.is_ok(), "Failed to fail at receiving data");
+        }
+
+        #[test]
+        fn receive_timeout_timed_out_fail() {
+            let channels = setup();
+            let result = channels.receive_timeout(Duration::from_secs(2));
+
+            assert!(result.is_err(), "Failed to timeout");
+        }
+
+        #[test]
+        fn receive_timeout_pass() {
+            let channels = setup();
+            channels
+                .send(Message::StopRunning)
+                .expect("Failed to send message");
+
+            let result = channels.receive_timeout(Duration::from_secs(2));
+
+            assert!(result.is_ok(), "Failed to get message");
+        }
+
+        #[test]
+        fn send_pass() {
+            let channels = setup();
+            channels
+                .send(Message::StopRunning)
+                .expect("Failed to send message");
+
+            let result = channels
+                .receive_timeout(Duration::from_secs(2))
+                .expect("Failed to receive message");
+
+            assert_eq!(result, Message::StopRunning);
+        }
+
+        #[test]
+        fn enable_and_enable_stream_pass() {
+            let mut manager = setup();
+            manager.enable_stream();
+            assert!(manager.get_stream_state(), "Somehow the stream wasn't enabled");
+
+            manager.disable_stream();
+            assert!(!manager.get_stream_state(), "Somehow the stream wasn't enabled");
+        }
+
+        #[test]
+        fn get_channels_pass() {
+            let manager = setup();
+            let (_, _) = manager.get_channels();
+        }
+
+        #[test]
+        fn receive_blocking_pass() {
+            let manager = setup();
+            manager.send(Message::SendError).expect("Somehow failed to send message");
+            assert!(manager.receive_blocking().is_ok(), "Somehow did not receive anything");
+        }
+
     }
 
-    #[test]
-    fn send_all_multiple_pass() {
-        let channels = setup();
-        let messages = vec![Message::StopRunning, Message::StopRunning];
+    mod controller_tests {
+        
+        use super::super::*;
+        use crossbeam::channel;
+        use pretty_assertions::assert_eq;
 
-        channels
-            .send_all(messages)
-            .expect("Failed to send multiple messages");
-        let messages = channels
-            .try_receive_all()
-            .expect("Failed to receive multiple messages");
-        assert_eq!(messages.len(), 2);
-    }
+        #[test] 
+        fn add_link_pass() {
+            let mut hub = Controller::new();
+            let thread_manager = hub.add_link(Identifier::Handler);
+            let unit_test_manager = hub.get_thread_manager(Identifier::Handler).expect("Somehow failed to retrieve manager");
 
-    #[test]
-    fn try_receive_all_single_pass() {
-        let channels = setup();
-        let messages = Message::StopRunning;
+            thread_manager.send(Message::StopRunning).expect("Failed to send message from thread end");
+            let thread_message = unit_test_manager.receive_blocking().expect("Failed to receive message from thread end");
+            assert!(matches!(thread_message, Message::StopRunning), "Somehow got a different message from thread");
 
-        channels
-            .send(messages)
-            .expect("Failed to send single message");
-        let message = channels
-            .try_receive_all()
-            .expect("Failed to receive single message");
-        assert_eq!(message.len(), 1);
-    }
-
-    #[test]
-    fn try_receive_all_multiple_pass() {
-        let channels = setup();
-        let messages = vec![Message::StopRunning, Message::StopRunning];
-
-        channels
-            .send_all(messages)
-            .expect("Failed to send multiple messages");
-        let messages = channels
-            .try_receive_all()
-            .expect("Failed to receive multiple messages");
-        assert_eq!(messages.len(), 2);
-    }
-
-    #[test]
-    fn try_receive_all_nothing_pass() {
-        let channels = setup();
-        let result = channels.try_receive_all();
-
-        assert!(result.is_ok(), "Failed to fail at receiving data");
-    }
-
-    #[test]
-    fn receive_timeout_timed_out_fail() {
-        let channels = setup();
-        let result = channels.receive_timeout(Duration::from_secs(2));
-
-        assert!(result.is_err(), "Failed to timeout");
-    }
-
-    #[test]
-    fn receive_timeout_pass() {
-        let channels = setup();
-        channels
-            .send(Message::StopRunning)
-            .expect("Failed to send message");
-
-        let result = channels.receive_timeout(Duration::from_secs(2));
-
-        assert!(result.is_ok(), "Failed to get message");
-    }
-
-    #[test]
-    fn send_pass() {
-        let channels = setup();
-        channels
-            .send(Message::StopRunning)
-            .expect("Failed to send message");
-
-        let result = channels
-            .receive_timeout(Duration::from_secs(2))
-            .expect("Failed to receive message");
-
-        assert_eq!(result, Message::StopRunning);
+            unit_test_manager.send(Message::StopRunning).expect("Failed to send message from unit test end");
+            let unit_test_message = thread_manager.receive_blocking().expect("Failed to receive message from unit test end");
+            assert!(matches!(unit_test_message, Message::StopRunning), "Somehow got a different message from unit test manager");
+        }
     }
 }
