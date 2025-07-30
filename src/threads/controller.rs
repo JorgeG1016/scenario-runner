@@ -351,7 +351,6 @@ mod tests {
     mod controller_tests {
         
         use super::super::*;
-        use crossbeam::channel;
         use pretty_assertions::assert_eq;
 
         #[test] 
@@ -368,5 +367,47 @@ mod tests {
             let unit_test_message = thread_manager.receive_blocking().expect("Failed to receive message from unit test end");
             assert!(matches!(unit_test_message, Message::StopRunning), "Somehow got a different message from unit test manager");
         }
+
+        #[test]
+        fn wait_on_inbox_pass() {
+            let mut hub = Controller::new();
+            let thread_manager = hub.add_link(Identifier::Handler);
+
+            thread_manager.send(Message::StopRunning).expect("Failed to send message from thread manager");
+            assert!(hub.wait_on_inbox().is_ok(), "Failed to get message from thread manager");
+        }
+
+        #[test]
+        fn send_to_thread_pass() {
+            let mut hub = Controller::new();
+            let thread_manager = hub.add_link(Identifier::Handler);
+
+            hub.send_to_thread(Identifier::Handler, Message::StopRunning).expect("Failed to send message from hub");
+            let message = thread_manager.receive_blocking().expect("Failed to receive a message from the hub");
+            assert_eq!(message, Message::StopRunning);
+        }
+
+        #[test]
+        fn send_to_thread_fail() {
+            let mut hub = Controller::new();
+            let thread_manager = hub.add_link(Identifier::Handler);
+
+            drop(thread_manager);
+            assert!(hub.send_to_thread(Identifier::Handler, Message::StopRunning).is_err(), "Somehow sent the message to the thread end");
+        }
+
+        #[test]
+        fn get_thread_manager_pass() {
+            let mut hub = Controller::new();
+            let _ = hub.add_link(Identifier::Handler);
+            assert!(hub.get_thread_manager(Identifier::Handler).is_ok(), "Somehow the thread wasn't added to the registry");
+        }
+
+        #[test]
+        fn get_thread_manager_fail() {
+            let mut hub = Controller::new();
+            assert!(hub.get_thread_manager(Identifier::Handler).is_err(), "Somehow the thread already existed in the registry");
+        }
+
     }
 }
