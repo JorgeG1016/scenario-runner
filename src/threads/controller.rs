@@ -219,11 +219,10 @@ fn process_messages(hub: &mut Controller) -> Result<()> {
 mod tests {
 
     mod itc_manager_tests {
-       
+
         use super::super::*;
         use crossbeam::channel;
         use pretty_assertions::assert_eq;
-
 
         fn setup() -> ItcManager {
             let (tx, rx) = channel::unbounded();
@@ -234,8 +233,12 @@ mod tests {
         fn send_all_single_pass() {
             let manager = setup();
             let message = vec![Message::StopRunning];
-            manager.send_all(message).expect("Failed to send single message");
-            let messages = manager.try_receive_all().expect("Failed to receive single message");
+            manager
+                .send_all(message)
+                .expect("Failed to send single message");
+            let messages = manager
+                .try_receive_all()
+                .expect("Failed to receive single message");
 
             assert_eq!(messages.len(), 1);
         }
@@ -327,10 +330,16 @@ mod tests {
         fn enable_and_enable_stream_pass() {
             let mut manager = setup();
             manager.enable_stream();
-            assert!(manager.get_stream_state(), "Somehow the stream wasn't enabled");
+            assert!(
+                manager.get_stream_state(),
+                "Somehow the stream wasn't enabled"
+            );
 
             manager.disable_stream();
-            assert!(!manager.get_stream_state(), "Somehow the stream wasn't enabled");
+            assert!(
+                !manager.get_stream_state(),
+                "Somehow the stream wasn't enabled"
+            );
         }
 
         #[test]
@@ -342,30 +351,50 @@ mod tests {
         #[test]
         fn receive_blocking_pass() {
             let manager = setup();
-            manager.send(Message::SendError).expect("Somehow failed to send message");
-            assert!(manager.receive_blocking().is_ok(), "Somehow did not receive anything");
+            manager
+                .send(Message::SendError)
+                .expect("Somehow failed to send message");
+            assert!(
+                manager.receive_blocking().is_ok(),
+                "Somehow did not receive anything"
+            );
         }
-
     }
 
     mod controller_tests {
-        
+
         use super::super::*;
         use pretty_assertions::assert_eq;
 
-        #[test] 
+        #[test]
         fn add_link_pass() {
             let mut hub = Controller::new();
             let thread_manager = hub.add_link(Identifier::Handler);
-            let unit_test_manager = hub.get_thread_manager(Identifier::Handler).expect("Somehow failed to retrieve manager");
+            let unit_test_manager = hub
+                .get_thread_manager(Identifier::Handler)
+                .expect("Somehow failed to retrieve manager");
 
-            thread_manager.send(Message::StopRunning).expect("Failed to send message from thread end");
-            let thread_message = unit_test_manager.receive_blocking().expect("Failed to receive message from thread end");
-            assert!(matches!(thread_message, Message::StopRunning), "Somehow got a different message from thread");
+            thread_manager
+                .send(Message::StopRunning)
+                .expect("Failed to send message from thread end");
+            let thread_message = unit_test_manager
+                .receive_blocking()
+                .expect("Failed to receive message from thread end");
+            assert!(
+                matches!(thread_message, Message::StopRunning),
+                "Somehow got a different message from thread"
+            );
 
-            unit_test_manager.send(Message::StopRunning).expect("Failed to send message from unit test end");
-            let unit_test_message = thread_manager.receive_blocking().expect("Failed to receive message from unit test end");
-            assert!(matches!(unit_test_message, Message::StopRunning), "Somehow got a different message from unit test manager");
+            unit_test_manager
+                .send(Message::StopRunning)
+                .expect("Failed to send message from unit test end");
+            let unit_test_message = thread_manager
+                .receive_blocking()
+                .expect("Failed to receive message from unit test end");
+            assert!(
+                matches!(unit_test_message, Message::StopRunning),
+                "Somehow got a different message from unit test manager"
+            );
         }
 
         #[test]
@@ -373,8 +402,13 @@ mod tests {
             let mut hub = Controller::new();
             let thread_manager = hub.add_link(Identifier::Handler);
 
-            thread_manager.send(Message::StopRunning).expect("Failed to send message from thread manager");
-            assert!(hub.wait_on_inbox().is_ok(), "Failed to get message from thread manager");
+            thread_manager
+                .send(Message::StopRunning)
+                .expect("Failed to send message from thread manager");
+            assert!(
+                hub.wait_on_inbox().is_ok(),
+                "Failed to get message from thread manager"
+            );
         }
 
         #[test]
@@ -382,8 +416,11 @@ mod tests {
             let mut hub = Controller::new();
             let thread_manager = hub.add_link(Identifier::Handler);
 
-            hub.send_to_thread(Identifier::Handler, Message::StopRunning).expect("Failed to send message from hub");
-            let message = thread_manager.receive_blocking().expect("Failed to receive a message from the hub");
+            hub.send_to_thread(Identifier::Handler, Message::StopRunning)
+                .expect("Failed to send message from hub");
+            let message = thread_manager
+                .receive_blocking()
+                .expect("Failed to receive a message from the hub");
             assert_eq!(message, Message::StopRunning);
         }
 
@@ -393,21 +430,30 @@ mod tests {
             let thread_manager = hub.add_link(Identifier::Handler);
 
             drop(thread_manager);
-            assert!(hub.send_to_thread(Identifier::Handler, Message::StopRunning).is_err(), "Somehow sent the message to the thread end");
+            assert!(
+                hub.send_to_thread(Identifier::Handler, Message::StopRunning)
+                    .is_err(),
+                "Somehow sent the message to the thread end"
+            );
         }
 
         #[test]
         fn get_thread_manager_pass() {
             let mut hub = Controller::new();
             let _ = hub.add_link(Identifier::Handler);
-            assert!(hub.get_thread_manager(Identifier::Handler).is_ok(), "Somehow the thread wasn't added to the registry");
+            assert!(
+                hub.get_thread_manager(Identifier::Handler).is_ok(),
+                "Somehow the thread wasn't added to the registry"
+            );
         }
 
         #[test]
         fn get_thread_manager_fail() {
             let mut hub = Controller::new();
-            assert!(hub.get_thread_manager(Identifier::Handler).is_err(), "Somehow the thread already existed in the registry");
+            assert!(
+                hub.get_thread_manager(Identifier::Handler).is_err(),
+                "Somehow the thread already existed in the registry"
+            );
         }
-
     }
 }

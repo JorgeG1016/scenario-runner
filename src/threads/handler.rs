@@ -1,5 +1,5 @@
 use crate::interaction::command::{self, Sendable, parse_scenario};
-use crate::threads::controller::{Message, ItcManager};
+use crate::threads::controller::{ItcManager, Message};
 use log::{debug, error, info, trace, warn};
 use std::path::PathBuf;
 use std::thread;

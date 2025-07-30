@@ -1,12 +1,9 @@
 use crate::connection::Communicate;
-use crate::threads::controller::{Message, ItcManager};
+use crate::threads::controller::{ItcManager, Message};
 use chrono::Local;
 use log::{error, info, trace, warn};
 
-pub fn thread(
-    connection_handle: &mut Box<dyn Communicate + Send + 'static>,
-    manager: ItcManager,
-) {
+pub fn thread(connection_handle: &mut Box<dyn Communicate + Send + 'static>, manager: ItcManager) {
     info!("Starting Command Runner Thread!");
 
     'main: loop {
