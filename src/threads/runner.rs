@@ -280,10 +280,13 @@ mod tests {
             .expect("Failed to send send data message");
 
         let received_message = unit_channel
-            .receive_timeout(Duration::from_secs(10))
+            .try_receive_all()
             .expect("Did not receive anything from thread");
+        let send_error_received = received_message
+            .iter()
+            .any(|message| matches!(message, Message::SendError));
         assert!(
-            matches!(received_message, Message::SendError),
+            send_error_received,
             "Unexpectedly received something else: {received_message:?}"
         );
 
