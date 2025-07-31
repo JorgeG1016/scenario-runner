@@ -270,24 +270,22 @@ mod tests {
         mock_connection
             .message_read
             .extend_from_slice(read_string.as_bytes());
-        let mut mock_connection: Box<dyn Communicate + Send + 'static> = Box::new(mock_connection);
-        let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
 
+        // Sending a send message before the thread even starts so the thread picks it up immediately
         unit_channel
             .send(Message::RunnerSendData {
                 data: Vec::from("Hello World!"),
             })
             .expect("Failed to send send data message");
+        let mut mock_connection: Box<dyn Communicate + Send + 'static> = Box::new(mock_connection);
+        let handle = thread::spawn(move || thread(&mut mock_connection, thread_channel));
 
         let received_message = unit_channel
-            .try_receive_all()
+            .receive_timeout(Duration::from_secs(10))
             .expect("Did not receive anything from thread");
-        let send_error_received = received_message
-            .iter()
-            .any(|message| matches!(message, Message::SendError));
         assert!(
-            send_error_received,
-            "Unexpectedly received something else: {received_message:?}"
+            matches!(received_message, Message::SendError),
+            "Unexpectedly received something else"
         );
 
         unit_channel
