@@ -284,7 +284,7 @@ mod tests {
             .expect("Did not receive anything from thread");
         assert!(
             matches!(received_message, Message::SendError),
-            "Unexpectedly received something else"
+            "Unexpectedly received something else: {received_message:?}"
         );
 
         unit_channel

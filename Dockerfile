@@ -1,8 +1,11 @@
-FROM rust:slim-trixie as build_stage
+FROM rust:1.88.0-alpine3.22 as build_stage
 
 # Set up dependencies
-RUN apt-get update
-RUN apt-get install -y libudev-dev pkg-config
+RUN apk update
+RUN apk add \
+    build-base \
+    libudev-zero-dev \
+    pkgconf
 
 # Set up app environment
 WORKDIR /app
@@ -16,10 +19,10 @@ RUN cargo test --all
 # Build the final release
 RUN cargo build --release
 
-FROM debian:trixie-slim
+FROM alpine:3.22
 
 # Set up runtime dependencies
-RUN apt-get install -y libudev1
+RUN apk add eudev
 
 # Grab the output from the build stage
 COPY --from=build_stage /app/target/release/scenario-runner /usr/local/bin/scenario-runner
