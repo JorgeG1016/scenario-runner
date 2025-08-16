@@ -5,6 +5,9 @@ configured connection. Commands are sent by the application and data received on
 matches what the user specified.
 
 In the end, the application will output results and log files outlining if the command sent passed or failed and other relevant information.
+## IMPORTANT
+
+This project is not complete, it was mainly used to start learning Rust and getting used to the syntax
 
 ## Installation
 
